@@ -1,4 +1,6 @@
 package com.aes.exam.common.security;
 
-public record SecurityContext(String userId, String role) {
+import com.aes.exam.auth.UserRole;
+
+public record SecurityContext(Long userId, String username, UserRole role, String realName) {
 }

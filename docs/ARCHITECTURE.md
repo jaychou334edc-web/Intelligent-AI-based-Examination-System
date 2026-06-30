@@ -168,6 +168,7 @@ Responsible for:
 - Form validation for user experience
 - API communication
 - UI state management
+- Token persistence in browser local storage for the current web session
 
 Frontend never accesses the database directly.
 
@@ -525,11 +526,24 @@ BCrypt hashing.
 
 Session
 
-Token-based or server session based.
+Phase 1 uses token-based sessions.
+
+The backend generates a random token after login, stores only the token hash in `login_sessions`, and returns the raw token to the browser once.
+
+The browser sends the token through the `Authorization: Bearer <token>` header.
+
+Logout revokes the current session in the database.
 
 API
 
 Authentication required.
+
+Phase 1 role access rules:
+
+- `/api/admin/**` requires `admin`.
+- `/api/teacher/**` requires `teacher`.
+- `/api/student/**` requires `student`.
+- `/api/auth/login`, `/api/health`, Swagger, and OpenAPI endpoints are public.
 
 Database
 
@@ -688,3 +702,16 @@ Layer rules:
 Manual field-by-field mapping is allowed only when MapStruct is not suitable.
 
 Common infrastructure lives under `com.aes.exam.common`.
+
+# 22. Phase 1 Implementation Notes
+
+The current vertical slice contains:
+
+- Java authentication controller and service layer.
+- JDBC repositories for users and login sessions.
+- Flyway migration `V2__auth_core.sql`.
+- Initial administrator bootstrap from external configuration.
+- Vue router guards for login and role-specific page access.
+- Admin, teacher, and student shell pages.
+
+Phase 1 intentionally does not implement full user management yet. Creating teacher and student accounts belongs to the next business expansion of the user module.

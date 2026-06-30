@@ -31,6 +31,28 @@
 - 外部化 CORS 配置
 - 基础安全上下文过滤器结构
 
+## Phase 1 核心系统骨架
+
+当前工程已接入最小可用认证闭环：
+
+- MySQL 用户、用户档案、登录会话迁移脚本
+- 初始管理员自动创建
+- BCrypt 密码哈希
+- 登录、退出、当前用户接口
+- Bearer Token 会话校验
+- 管理员、教师、学生后端角色入口
+- Vue 登录页与三角色工作台壳页面
+- 前端路由登录态与角色拦截
+
+默认初始管理员仅用于本地开发和首次部署：
+
+```text
+username: admin
+password: Admin@123456
+```
+
+生产环境必须通过环境变量或外部配置修改 `AES_INITIAL_ADMIN_PASSWORD`，不要使用默认密码上线。
+
 ## 技术栈
 
 - 后端：Java 21 target，Spring Boot 3.x
@@ -55,14 +77,25 @@
 
 浏览器、前端和未来移动端都必须通过 Java 后端 API 访问业务数据，不直接访问 MySQL 或 DeepSeek。
 
+Phase 1 认证接口：
+
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
+- `GET /api/admin/shell`
+- `GET /api/teacher/shell`
+- `GET /api/student/shell`
+
+完整接口文档运行后访问 `/swagger-ui.html`。
+
 ## 本地开发命令
 
 后端：
 
 ```powershell
 cd backend
-mvn test
-mvn spring-boot:run
+& 'E:\MAVEN\apache-maven-3.8.8\bin\mvn.cmd' test
+& 'E:\MAVEN\apache-maven-3.8.8\bin\mvn.cmd' spring-boot:run
 ```
 
 前端：

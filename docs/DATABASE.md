@@ -132,6 +132,18 @@ login_sessions (
 )
 ```
 
+## 4.4 Current Migration Status
+
+Phase 1 creates the user and authentication tables through `database/migration/V2__auth_core.sql`.
+
+Implemented tables:
+
+- `users`
+- `user_profiles`
+- `login_sessions`
+
+The initial administrator is inserted by application bootstrap code instead of a fixed SQL password, because the password must come from external deployment configuration and be hashed with BCrypt.
+
 # 5. Paper Domain
 
 ## 5.1 papers

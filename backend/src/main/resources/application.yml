@@ -3,6 +3,14 @@ spring:
     name: ai-examination-system
   profiles:
     active: local
+  datasource:
+    url: ${AES_DB_URL:jdbc:mysql://localhost:3306/aes?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC}
+    username: ${AES_DB_USERNAME:aes}
+    password: ${AES_DB_PASSWORD:aes_password}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    enabled: ${AES_FLYWAY_ENABLED:true}
+    locations: classpath:db/migration,filesystem:../database/migration
   jackson:
     time-zone: UTC
     serialization:
@@ -30,6 +38,12 @@ springdoc:
 aes:
   school-name: ${AES_SCHOOL_NAME:Local School}
   upload-dir: ${AES_UPLOAD_DIR:./data/uploads}
+  auth:
+    token-ttl-hours: ${AES_AUTH_TOKEN_TTL_HOURS:8}
+    initial-admin:
+      username: ${AES_INITIAL_ADMIN_USERNAME:admin}
+      password: ${AES_INITIAL_ADMIN_PASSWORD:Admin@123456}
+      real-name: ${AES_INITIAL_ADMIN_REAL_NAME:系统管理员}
   cors:
     allowed-origins:
       - ${AES_CORS_ALLOWED_ORIGIN:http://localhost:5173}

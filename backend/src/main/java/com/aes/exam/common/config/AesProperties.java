@@ -9,6 +9,7 @@ public class AesProperties {
 
     private String schoolName;
     private String uploadDir;
+    private AuthProperties auth = new AuthProperties();
     private CorsProperties cors = new CorsProperties();
 
     public String getSchoolName() {
@@ -25,6 +26,14 @@ public class AesProperties {
 
     public void setUploadDir(String uploadDir) {
         this.uploadDir = uploadDir;
+    }
+
+    public AuthProperties getAuth() {
+        return auth;
+    }
+
+    public void setAuth(AuthProperties auth) {
+        this.auth = auth;
     }
 
     public CorsProperties getCors() {
@@ -90,6 +99,59 @@ public class AesProperties {
 
         public void setMaxAge(long maxAge) {
             this.maxAge = maxAge;
+        }
+    }
+
+    public static class AuthProperties {
+
+        private int tokenTtlHours = 8;
+        private InitialAdminProperties initialAdmin = new InitialAdminProperties();
+
+        public int getTokenTtlHours() {
+            return tokenTtlHours;
+        }
+
+        public void setTokenTtlHours(int tokenTtlHours) {
+            this.tokenTtlHours = tokenTtlHours;
+        }
+
+        public InitialAdminProperties getInitialAdmin() {
+            return initialAdmin;
+        }
+
+        public void setInitialAdmin(InitialAdminProperties initialAdmin) {
+            this.initialAdmin = initialAdmin;
+        }
+    }
+
+    public static class InitialAdminProperties {
+
+        private String username = "admin";
+        private String password = "Admin@123456";
+        private String realName = "系统管理员";
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+
+        public void setPassword(String password) {
+            this.password = password;
+        }
+
+        public String getRealName() {
+            return realName;
+        }
+
+        public void setRealName(String realName) {
+            this.realName = realName;
         }
     }
 }

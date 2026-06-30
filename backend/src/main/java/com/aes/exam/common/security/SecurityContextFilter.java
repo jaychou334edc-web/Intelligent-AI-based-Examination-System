@@ -1,5 +1,7 @@
 package com.aes.exam.common.security;
 
+import com.aes.exam.auth.service.AuthTokenService;
+import com.aes.exam.auth.service.CurrentUserService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -8,15 +10,19 @@ import java.io.IOException;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
 public class SecurityContextFilter extends OncePerRequestFilter {
 
-    private static final String USER_ID_HEADER = "X-User-Id";
-    private static final String USER_ROLE_HEADER = "X-User-Role";
+    private final AuthTokenService tokenService;
+    private final CurrentUserService currentUserService;
+
+    public SecurityContextFilter(AuthTokenService tokenService, CurrentUserService currentUserService) {
+        this.tokenService = tokenService;
+        this.currentUserService = currentUserService;
+    }
 
     @Override
     protected void doFilterInternal(
@@ -25,11 +31,9 @@ public class SecurityContextFilter extends OncePerRequestFilter {
         FilterChain filterChain
     ) throws ServletException, IOException {
         try {
-            String userId = request.getHeader(USER_ID_HEADER);
-            String role = request.getHeader(USER_ROLE_HEADER);
-            if (StringUtils.hasText(userId) && StringUtils.hasText(role)) {
-                SecurityContextHolder.set(new SecurityContext(userId, role));
-            }
+            tokenService.resolveBearerToken(request)
+                .flatMap(currentUserService::loadContextByToken)
+                .ifPresent(SecurityContextHolder::set);
             filterChain.doFilter(request, response);
         } finally {
             SecurityContextHolder.clear();
