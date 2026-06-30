@@ -26,7 +26,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
   const token = getStoredToken()
 
   if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json')
+    headers.set('Content-Type', 'application/json;charset=UTF-8')
   }
 
   if (token) {

@@ -29,6 +29,16 @@ function statusLabel(status?: string) {
   return '未开始'
 }
 
+function actionLabel(status?: string) {
+  if (status === 'submitted') {
+    return '查看考试'
+  }
+  if (status === 'in_progress') {
+    return '继续答题'
+  }
+  return '进入考试'
+}
+
 onMounted(loadExams)
 </script>
 
@@ -61,8 +71,8 @@ onMounted(loadExams)
           <span>{{ exam.questionCount }} 题</span>
           <span>{{ exam.totalScore }} 分</span>
         </div>
-        <el-button type="primary" :disabled="exam.submissionStatus === 'submitted'" @click="router.push(`/student/exams/${exam.id}`)">
-          {{ exam.submissionStatus === 'in_progress' ? '继续答题' : '进入考试' }}
+        <el-button type="primary" @click="router.push(`/student/exams/${exam.id}`)">
+          {{ actionLabel(exam.submissionStatus) }}
         </el-button>
       </article>
     </section>
