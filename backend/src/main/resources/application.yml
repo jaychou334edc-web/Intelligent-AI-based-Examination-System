@@ -3,6 +3,10 @@ spring:
     name: ai-examination-system
   profiles:
     active: local
+  jackson:
+    time-zone: UTC
+    serialization:
+      write-dates-as-timestamps: false
 
 server:
   port: 8080
@@ -13,9 +17,36 @@ management:
       exposure:
         include: health,info
 
+logging:
+  pattern:
+    level: "%5p [requestId:%X{requestId:-}]"
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
 aes:
   school-name: ${AES_SCHOOL_NAME:Local School}
   upload-dir: ${AES_UPLOAD_DIR:./data/uploads}
+  cors:
+    allowed-origins:
+      - ${AES_CORS_ALLOWED_ORIGIN:http://localhost:5173}
+      - http://127.0.0.1:5173
+    allowed-methods:
+      - GET
+      - POST
+      - PUT
+      - PATCH
+      - DELETE
+      - OPTIONS
+    allowed-headers:
+      - "*"
+    exposed-headers:
+      - X-Request-ID
+    allow-credentials: true
+    max-age: 3600
   ai:
     deepseek-api-key: ${DEEPSEEK_API_KEY:}
     deepseek-base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}

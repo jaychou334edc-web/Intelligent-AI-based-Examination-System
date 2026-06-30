@@ -632,3 +632,59 @@ Every new feature must include documentation.
 Architecture changes require documentation updates.
 
 This document is the authoritative architectural reference for AES.
+
+# 21. Engineering Standards
+
+Phase 0.5 establishes mandatory backend engineering conventions.
+
+All backend business APIs return `ApiResponse<T>`.
+
+Successful responses use:
+
+- `success = true`
+- `code = OK`
+- `message = 请求成功`
+- `data = response payload`
+- `requestId = X-Request-ID / generated request id`
+- `timestamp = UTC time`
+
+Failed responses must use `ErrorCode`.
+
+Known failures must be represented as:
+
+- `BusinessException`
+- `AuthException`
+- Bean Validation violations
+
+Unknown exceptions are handled by `GlobalExceptionHandler` and must not expose internal stack traces to clients.
+
+Every request receives an `X-Request-ID` response header. Application logs include the MDC key `requestId`.
+
+JSON time values use UTC ISO-8601 format. Timestamps must not be serialized as numeric arrays.
+
+CORS policy is externalized under `aes.cors`.
+
+Swagger UI is exposed at `/swagger-ui.html`. OpenAPI JSON is exposed at `/v3/api-docs`.
+
+Backend package conventions:
+
+```text
+com.aes.exam.<module>.controller
+com.aes.exam.<module>.service
+com.aes.exam.<module>.repository
+com.aes.exam.<module>.dto
+com.aes.exam.<module>.entity
+com.aes.exam.<module>.vo
+com.aes.exam.<module>.mapper
+```
+
+Layer rules:
+
+- DTO: receives client input.
+- Entity: represents persisted or domain data shape.
+- VO: returns data to clients.
+- Mapper: converts DTO / Entity / VO through MapStruct.
+
+Manual field-by-field mapping is allowed only when MapStruct is not suitable.
+
+Common infrastructure lives under `com.aes.exam.common`.

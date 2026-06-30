@@ -10,6 +10,23 @@ spring:
 aes:
   school-name: Example University
   upload-dir: ./data/uploads
+  cors:
+    allowed-origins:
+      - http://localhost:5173
+      - http://127.0.0.1:5173
+    allowed-methods:
+      - GET
+      - POST
+      - PUT
+      - PATCH
+      - DELETE
+      - OPTIONS
+    allowed-headers:
+      - "*"
+    exposed-headers:
+      - X-Request-ID
+    allow-credentials: true
+    max-age: 3600
   ai:
     deepseek-api-key: change_me
     deepseek-base-url: https://api.deepseek.com

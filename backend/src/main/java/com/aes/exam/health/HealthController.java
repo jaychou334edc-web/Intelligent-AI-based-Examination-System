@@ -1,5 +1,6 @@
 package com.aes.exam.health;
 
+import com.aes.exam.common.api.ApiResponse;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,7 +12,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class HealthController {
 
     @GetMapping
-    public HealthResponse health() {
-        return new HealthResponse("UP", "AI Examination System backend", OffsetDateTime.now(ZoneOffset.UTC));
+    public ApiResponse<HealthResponse> health() {
+        HealthResponse response = new HealthResponse(
+            "UP",
+            "AI Examination System backend",
+            OffsetDateTime.now(ZoneOffset.UTC)
+        );
+        return ApiResponse.success(response);
     }
 }
