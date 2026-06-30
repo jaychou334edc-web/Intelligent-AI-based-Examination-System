@@ -1,0 +1,15 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/aes?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC
+    username: aes
+    password: change_me
+
+aes:
+  school-name: Example University
+  upload-dir: ./data/uploads
+  ai:
+    deepseek-api-key: change_me
+    deepseek-base-url: https://api.deepseek.com

@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: ai-examination-system
+  profiles:
+    active: local
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+aes:
+  school-name: ${AES_SCHOOL_NAME:Local School}
+  upload-dir: ${AES_UPLOAD_DIR:./data/uploads}
+  ai:
+    deepseek-api-key: ${DEEPSEEK_API_KEY:}
+    deepseek-base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
