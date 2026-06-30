@@ -144,7 +144,7 @@ Implemented tables:
 
 The initial administrator is inserted by application bootstrap code instead of a fixed SQL password, because the password must come from external deployment configuration and be hashed with BCrypt.
 
-Phase 2 creates paper parsing and question bank tables through `database/migration/V3__paper_ai_question_core.sql`.
+Phase 2 creates paper parsing and question bank tables through `database/migration/V3__paper_ai_question_core.sql` and image manifest support through `database/migration/V4__paper_image_manifest.sql`.
 
 Implemented tables:
 
@@ -155,6 +155,16 @@ Implemented tables:
 - `question_options`
 - `question_answers`
 - `ai_logs`
+
+Phase 3 creates examination and submission tables through `database/migration/V5__exam_submission_core.sql`.
+
+Implemented tables:
+
+- `exams`
+- `exam_questions`
+- `exam_participants`
+- `submissions`
+- `submission_answers`
 
 # 5. Paper Domain
 
@@ -356,22 +366,18 @@ exams (
     title VARCHAR(255) NOT NULL,
     description TEXT,
 
-    creator_id BIGINT NOT NULL,
-
-    start_time DATETIME,
-    end_time DATETIME,
     duration_minutes INT NOT NULL,
 
     status VARCHAR(32) NOT NULL DEFAULT 'draft',
-    anti_cheat_level VARCHAR(32) NOT NULL DEFAULT 'normal',
+    published_at DATETIME,
 
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
-    created_by BIGINT NULL,
+    created_by BIGINT NOT NULL,
     updated_by BIGINT NULL,
     is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 
-    CONSTRAINT fk_exams_creator FOREIGN KEY (creator_id) REFERENCES users(id)
+    CONSTRAINT fk_exams_created_by FOREIGN KEY (created_by) REFERENCES users(id)
 )
 ```
 
@@ -379,8 +385,6 @@ Status values:
 
 - draft
 - published
-- in_progress
-- finished
 - archived
 
 ## 8.2 exam_questions
@@ -391,14 +395,14 @@ exam_questions (
     exam_id BIGINT NOT NULL,
     question_id BIGINT NOT NULL,
 
-    score_override DECIMAL(6,2) NULL,
-    sort_order INT NOT NULL DEFAULT 0,
+    sort_order INT NOT NULL,
+    score DECIMAL(6,2) NOT NULL,
 
     created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL,
 
     CONSTRAINT fk_exam_questions_exam FOREIGN KEY (exam_id) REFERENCES exams(id),
-    CONSTRAINT fk_exam_questions_question FOREIGN KEY (question_id) REFERENCES questions(id)
+    CONSTRAINT fk_exam_questions_question FOREIGN KEY (question_id) REFERENCES questions(id),
+    CONSTRAINT uk_exam_questions_question UNIQUE (exam_id, question_id)
 )
 ```
 
@@ -408,19 +412,17 @@ exam_questions (
 exam_participants (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     exam_id BIGINT NOT NULL,
-    user_id BIGINT NOT NULL,
+    student_id BIGINT NOT NULL,
 
-    status VARCHAR(32) NOT NULL DEFAULT 'not_started',
+    status VARCHAR(32) NOT NULL DEFAULT 'assigned',
 
-    start_time DATETIME,
-    submit_time DATETIME,
-    last_active_at DATETIME,
-
-    created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL,
+    assigned_at DATETIME NOT NULL,
+    started_at DATETIME,
+    submitted_at DATETIME,
 
     CONSTRAINT fk_exam_participants_exam FOREIGN KEY (exam_id) REFERENCES exams(id),
-    CONSTRAINT fk_exam_participants_user FOREIGN KEY (user_id) REFERENCES users(id)
+    CONSTRAINT fk_exam_participants_student FOREIGN KEY (student_id) REFERENCES users(id),
+    CONSTRAINT uk_exam_participants_student UNIQUE (exam_id, student_id)
 )
 ```
 
@@ -432,18 +434,20 @@ exam_participants (
 submissions (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     exam_id BIGINT NOT NULL,
-    user_id BIGINT NOT NULL,
+    student_id BIGINT NOT NULL,
 
-    total_score DECIMAL(8,2) NOT NULL DEFAULT 0,
-    status VARCHAR(32) NOT NULL DEFAULT 'submitted',
+    status VARCHAR(32) NOT NULL DEFAULT 'in_progress',
 
-    submit_time DATETIME,
+    started_at DATETIME NOT NULL,
+    submitted_at DATETIME,
+    total_score DECIMAL(8,2),
 
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
 
     CONSTRAINT fk_submissions_exam FOREIGN KEY (exam_id) REFERENCES exams(id),
-    CONSTRAINT fk_submissions_user FOREIGN KEY (user_id) REFERENCES users(id)
+    CONSTRAINT fk_submissions_student FOREIGN KEY (student_id) REFERENCES users(id),
+    CONSTRAINT uk_submissions_student UNIQUE (exam_id, student_id)
 )
 ```
 
@@ -456,16 +460,15 @@ submission_answers (
     question_id BIGINT NOT NULL,
 
     answer_text LONGTEXT,
-    selected_option VARCHAR(255),
+    is_correct TINYINT(1),
 
-    score DECIMAL(8,2) NOT NULL DEFAULT 0,
-    auto_saved_at DATETIME,
+    score DECIMAL(6,2),
 
-    created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
 
     CONSTRAINT fk_submission_answers_submission FOREIGN KEY (submission_id) REFERENCES submissions(id),
-    CONSTRAINT fk_submission_answers_question FOREIGN KEY (question_id) REFERENCES questions(id)
+    CONSTRAINT fk_submission_answers_question FOREIGN KEY (question_id) REFERENCES questions(id),
+    CONSTRAINT uk_submission_answers_question UNIQUE (submission_id, question_id)
 )
 ```
 

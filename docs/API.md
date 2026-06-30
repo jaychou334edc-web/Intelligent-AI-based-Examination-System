@@ -1,6 +1,6 @@
 # AES API Documentation
 
-Version: Phase 2
+Version: Phase 3
 
 Status: Active
 
@@ -245,3 +245,121 @@ Response data:
 ```
 
 Imported questions are written to `questions`, `question_options`, and `question_answers`. AI temporary rows are marked `approved`.
+
+## 5.5 Read Question Bank
+
+`GET /api/questions?limit=100`
+
+Returns recent official question bank items for teacher review and exam composition.
+
+# 6. Examination Flow
+
+Phase 3 APIs use role-separated paths.
+
+Teacher APIs require `teacher` role:
+
+- `POST /api/teacher/exams`
+- `GET /api/teacher/exams`
+- `GET /api/teacher/exams/{examId}`
+- `POST /api/teacher/exams/{examId}/questions`
+- `POST /api/teacher/exams/{examId}/publish`
+
+Student APIs require `student` role:
+
+- `GET /api/student/exams`
+- `GET /api/student/exams/{examId}`
+- `POST /api/student/exams/{examId}/answers`
+- `POST /api/student/exams/{examId}/submit`
+
+## 6.1 Create Exam Draft
+
+`POST /api/teacher/exams`
+
+Request:
+
+```json
+{
+  "title": "Java Web 单元测试",
+  "description": "本次考试用于课堂测验。",
+  "durationMinutes": 60
+}
+```
+
+Response data is an `ExamDetailVO` with `status=draft`.
+
+## 6.2 Select Questions
+
+`POST /api/teacher/exams/{examId}/questions`
+
+Request:
+
+```json
+{
+  "questionIds": [1, 2, 3]
+}
+```
+
+Only draft exams can be edited. Question order follows the request order.
+
+## 6.3 Publish Exam
+
+`POST /api/teacher/exams/{examId}/publish`
+
+Publishing locks the exam and assigns it to all active student users.
+
+## 6.4 Student Exam List
+
+`GET /api/student/exams`
+
+Response items include:
+
+```json
+{
+  "id": 1,
+  "title": "Java Web 单元测试",
+  "durationMinutes": 60,
+  "status": "published",
+  "questionCount": 3,
+  "totalScore": 30,
+  "submissionStatus": "assigned"
+}
+```
+
+## 6.5 Enter Exam
+
+`GET /api/student/exams/{examId}`
+
+The backend creates a submission if one does not exist. The response includes `submissionStartedAt` for countdown recovery after refresh.
+
+Student responses never include the standard answer field.
+
+## 6.6 Save Answer
+
+`POST /api/student/exams/{examId}/answers`
+
+Request:
+
+```json
+{
+  "questionId": 1,
+  "answer": "A"
+}
+```
+
+The endpoint upserts the current answer. Submitted exams cannot be modified.
+
+## 6.7 Submit Exam
+
+`POST /api/student/exams/{examId}/submit`
+
+Request:
+
+```json
+{
+  "answers": [
+    {"questionId": 1, "answer": "A"}
+  ]
+}
+```
+
+The endpoint saves the provided answers and marks the submission as `submitted`.

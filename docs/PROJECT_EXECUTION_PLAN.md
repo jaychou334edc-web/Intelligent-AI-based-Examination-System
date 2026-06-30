@@ -297,21 +297,31 @@ Complete examination lifecycle.
 
 Phase 3 is complete only when:
 
-- Teacher can create an exam.
-- Teacher can select questions.
-- Teacher can publish an exam.
-- Published exams appear for assigned students.
-- Student can enter exam page.
-- Countdown timer works.
-- Auto-save works.
-- Final submit works.
-- Submitted answers are persisted.
-- Browser refresh or short interruption does not lose saved answers.
+- Teacher can create an exam. Implemented in `/api/teacher/exams` and the teacher exam management page.
+- Teacher can select questions. Implemented through question bank selection on draft exams.
+- Teacher can publish an exam. Publishing locks the draft and assigns it to active student users.
+- Published exams appear for assigned students. Implemented in `/api/student/exams`.
+- Student can enter exam page. Entering creates or resumes a submission.
+- Countdown timer works. The frontend counts down from backend `submissionStartedAt`.
+- Auto-save works. The frontend silently saves the current answer after answer changes and before navigation.
+- Final submit works. Submitted exams are locked against further answer changes.
+- Submitted answers are persisted. Answers are stored in `submission_answers`.
+- Browser refresh or short interruption does not lose saved answers. Reloading the exam restores saved answers and remaining time.
 - Backend tests pass.
 - Frontend build or type check passes when dependencies are available.
 - API documentation is updated.
 - Git commit is ready.
 - Git tag `v0.4.0-phase3` is ready after commit.
+
+## Current Phase 3 Implementation Note
+
+Phase 3 delivers the runnable examination lifecycle:
+
+```text
+Teacher creates draft -> selects question bank items -> publishes exam -> student enters -> answers are auto-saved -> student submits
+```
+
+Objective auto-grading and teacher manual grading are intentionally left for Phase 4 so that the exam-taking flow remains stable before score computation expands.
 
 # 9. Phase 4 - Grading System
 

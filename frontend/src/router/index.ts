@@ -3,6 +3,9 @@ import LoginView from '../views/LoginView.vue'
 import RoleShellView from '../views/RoleShellView.vue'
 import TeacherPaperParsingView from '../views/TeacherPaperParsingView.vue'
 import TeacherQuestionBankView from '../views/TeacherQuestionBankView.vue'
+import TeacherExamManagementView from '../views/TeacherExamManagementView.vue'
+import StudentExamListView from '../views/StudentExamListView.vue'
+import StudentExamTakingView from '../views/StudentExamTakingView.vue'
 import { useAuthStore } from '../stores/auth'
 import type { UserRole } from '../api/auth'
 
@@ -56,11 +59,30 @@ const router = createRouter({
       meta: { requiresAuth: true, role: 'teacher' },
     },
     {
+      path: '/teacher/exams',
+      name: 'teacher-exams',
+      component: TeacherExamManagementView,
+      meta: { requiresAuth: true, role: 'teacher' },
+    },
+    {
       path: '/student',
       name: 'student',
       component: RoleShellView,
       meta: { requiresAuth: true, role: 'student' },
       props: { role: 'student' },
+    },
+    {
+      path: '/student/exams',
+      name: 'student-exams',
+      component: StudentExamListView,
+      meta: { requiresAuth: true, role: 'student' },
+    },
+    {
+      path: '/student/exams/:examId',
+      name: 'student-exam-taking',
+      component: StudentExamTakingView,
+      meta: { requiresAuth: true, role: 'student' },
+      props: (route) => ({ examId: Number(route.params.examId) }),
     },
   ],
 })

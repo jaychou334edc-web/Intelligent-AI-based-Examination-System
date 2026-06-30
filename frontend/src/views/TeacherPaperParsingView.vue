@@ -110,7 +110,7 @@ function imageUrl(imageId: string) {
 
 function stemParts(text: string) {
   const parts: Array<{ type: 'text' | 'image'; value: string }> = []
-  const pattern = /\[IMG:([^\]]+)]/g
+  const pattern = /\[IMG:([^\]]+)\]/g
   let lastIndex = 0
   let match: RegExpExecArray | null
   while ((match = pattern.exec(text)) !== null) {
