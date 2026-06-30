@@ -148,6 +148,41 @@ class ExamFlowTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.totalScore", is(13.0)));
 
+        mockMvc.perform(post("/api/student/monitoring/exams/" + examId + "/events")
+                .header(HttpHeaders.AUTHORIZATION, bearer(studentToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"eventType":"browser_blur","eventLevel":"warning","eventData":{"questionIndex":1,"remainingSeconds":1200}}
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status", is("recorded")));
+
+        mockMvc.perform(post("/api/student/monitoring/exams/" + examId + "/events")
+                .header(HttpHeaders.AUTHORIZATION, bearer(studentToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"eventType":"copy_attempt","eventLevel":"critical","eventData":{"questionIndex":2}}
+                    """))
+            .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/teacher/monitoring/exams/" + examId + "/events")
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.length()", is(2)))
+            .andExpect(jsonPath("$.data[0].eventType", is("copy_attempt")));
+
+        mockMvc.perform(get("/api/teacher/monitoring/exams/" + examId + "/analytics")
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.examId", is(examId.intValue())))
+            .andExpect(jsonPath("$.data.submittedCount", is(1)))
+            .andExpect(jsonPath("$.data.participantCount", greaterThanOrEqualTo(1)))
+            .andExpect(jsonPath("$.data.averageScore", is(13.0)))
+            .andExpect(jsonPath("$.data.passRate", is(100.0)))
+            .andExpect(jsonPath("$.data.scoreDistribution[4].count", is(1)))
+            .andExpect(jsonPath("$.data.questionAccuracy.length()", is(3)))
+            .andExpect(jsonPath("$.data.eventCounts.length()", is(2)));
+
         mockMvc.perform(post("/api/student/exams/" + examId + "/answers")
                 .header(HttpHeaders.AUTHORIZATION, bearer(studentToken))
                 .contentType(MediaType.APPLICATION_JSON)

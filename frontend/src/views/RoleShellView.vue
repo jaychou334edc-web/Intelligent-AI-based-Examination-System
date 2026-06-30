@@ -29,7 +29,7 @@ const roleMeta: Record<UserRole, { title: string; subtitle: string; tone: string
     subtitle: '集中处理题库建设、试卷管理、考试发布与成绩分析。',
     tone: 'green',
     label: '教师',
-    actions: ['AI 题库导入', '题库维护', '考试管理', '阅卷管理'],
+    actions: ['AI 题库导入', '题库维护', '考试管理', '阅卷管理', '监考分析'],
   },
   student: {
     title: '学生考试入口',
@@ -55,6 +55,9 @@ function actionTarget(action: string) {
   }
   if (props.role === 'teacher' && action === '阅卷管理') {
     return '/teacher/grading'
+  }
+  if (props.role === 'teacher' && action === '监考分析') {
+    return '/teacher/monitoring'
   }
   if (props.role === 'student' && action === '考试列表') {
     return '/student/exams'

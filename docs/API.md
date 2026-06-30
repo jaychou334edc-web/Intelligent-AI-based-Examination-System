@@ -1,6 +1,6 @@
 # AES API Documentation
 
-Version: Phase 4
+Version: Phase 5
 
 Status: Active
 
@@ -478,3 +478,133 @@ Returns the current student's submitted exams and score summaries.
 `GET /api/student/results/{submissionId}`
 
 Returns the student's answer detail, per-question score, grading status, and teacher comment.
+
+# 8. Monitoring And Analytics
+
+Phase 5 APIs use role-separated paths.
+
+Student monitoring APIs require `student` role:
+
+- `POST /api/student/monitoring/exams/{examId}/events`
+
+Teacher monitoring APIs require `teacher` role:
+
+- `GET /api/teacher/monitoring/exams/{examId}/events`
+- `GET /api/teacher/monitoring/exams/{examId}/analytics`
+
+## 8.1 Record Student Exam Event
+
+`POST /api/student/monitoring/exams/{examId}/events`
+
+Request:
+
+```json
+{
+  "eventType": "browser_blur",
+  "eventLevel": "warning",
+  "eventData": {
+    "questionIndex": 1,
+    "remainingSeconds": 1200
+  },
+  "clientTime": "2026-07-01T10:00:00"
+}
+```
+
+Supported `eventType` values:
+
+- `browser_blur`
+- `tab_hidden`
+- `fullscreen_exit`
+- `copy_attempt`
+- `paste_attempt`
+- `page_refresh`
+- `abnormal_disconnect`
+- `network_offline`
+- `network_online`
+- `repeated_submit`
+
+Supported `eventLevel` values:
+
+- `info`
+- `warning`
+- `critical`
+
+Response data:
+
+```json
+{
+  "eventId": 1,
+  "status": "recorded",
+  "recordedAt": "2026-07-01T10:00:01"
+}
+```
+
+Browser event logging is a monitoring aid. It records observable browser behavior and does not claim complete OS-level proctoring.
+
+## 8.2 Teacher Event Timeline
+
+`GET /api/teacher/monitoring/exams/{examId}/events`
+
+Returns anti-cheat events for exams created by the current teacher.
+
+Response item:
+
+```json
+{
+  "id": 1,
+  "userId": 3,
+  "studentName": "测试学生",
+  "examId": 1,
+  "examTitle": "Java Web 单元测试",
+  "eventType": "copy_attempt",
+  "eventLevel": "critical",
+  "eventData": {
+    "questionIndex": 2
+  },
+  "clientTime": "2026-07-01T10:00:00",
+  "createdAt": "2026-07-01T10:00:01"
+}
+```
+
+## 8.3 Teacher Exam Analytics
+
+`GET /api/teacher/monitoring/exams/{examId}/analytics`
+
+Returns score and behavior analytics for the selected exam.
+
+Response data:
+
+```json
+{
+  "examId": 1,
+  "examTitle": "Java Web 单元测试",
+  "participantCount": 30,
+  "submittedCount": 28,
+  "averageScore": 82.5,
+  "maxScore": 98,
+  "minScore": 41,
+  "passRate": 92.86,
+  "scoreDistribution": [
+    {"label": "90-100", "count": 8}
+  ],
+  "questionAccuracy": [
+    {
+      "questionId": 1,
+      "questionType": "single_choice",
+      "stem": "下列哪个选项是 Java 后端框架？",
+      "maxScore": 5,
+      "averageScore": 4.64,
+      "accuracyRate": 92.8
+    }
+  ],
+  "difficultyStats": [
+    {"difficulty": "normal", "questionCount": 10, "averageScore": 3.8, "accuracyRate": 76}
+  ],
+  "knowledgePointStats": [
+    {"knowledgePoint": "Java Web", "questionCount": 6, "averageScore": 4.2, "accuracyRate": 84}
+  ],
+  "eventCounts": [
+    {"eventType": "browser_blur", "count": 3}
+  ]
+}
+```

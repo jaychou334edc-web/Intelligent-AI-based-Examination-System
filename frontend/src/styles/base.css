@@ -577,6 +577,87 @@ h2 {
   align-items: start;
 }
 
+.monitoring-layout {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.monitoring-detail {
+  display: grid;
+  gap: 20px;
+}
+
+.monitoring-metrics,
+.monitoring-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.metric-card {
+  min-height: 150px;
+}
+
+.metric-card h2 {
+  font-size: 34px;
+}
+
+.metric-card span {
+  color: #64748b;
+}
+
+.stat-list,
+.timeline-list,
+.accuracy-list {
+  display: grid;
+  gap: 10px;
+}
+
+.stat-row,
+.accuracy-row {
+  display: grid;
+  gap: 4px;
+  padding: 10px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.stat-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.stat-row span,
+.accuracy-row span,
+.timeline-item span {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.accuracy-row em {
+  color: #2563eb;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.timeline-item {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.timeline-item p {
+  margin: 0;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .grading-list-card,
 .grading-detail-card {
   min-height: 420px;
@@ -625,6 +706,9 @@ h2 {
   .student-exam-grid,
   .taking-layout,
   .grading-layout,
+  .monitoring-layout,
+  .monitoring-metrics,
+  .monitoring-grid,
   .manual-grade-row {
     grid-template-columns: 1fr;
   }

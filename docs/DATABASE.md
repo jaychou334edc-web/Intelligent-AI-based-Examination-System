@@ -173,6 +173,13 @@ Implemented changes:
 - `submissions.graded_at`
 - `grading_records`
 
+Phase 5 creates monitoring and analytics support through `database/migration/V7__monitoring_analytics.sql`.
+
+Implemented tables:
+
+- `anti_cheat_events`
+- `exam_statistics`
+
 # 5. Paper Domain
 
 ## 5.1 papers
@@ -540,7 +547,7 @@ anti_cheat_events (
     event_type VARCHAR(64) NOT NULL,
     event_level VARCHAR(32) NOT NULL,
 
-    event_data JSON,
+    event_data LONGTEXT,
     client_time DATETIME,
 
     created_at DATETIME NOT NULL,
@@ -560,6 +567,10 @@ Event Types:
 - page_refresh
 - abnormal_disconnect
 - repeated_submit
+- network_offline
+- network_online
+
+Phase 5 stores browser-observable exam behavior only. These events support teacher review and analytics; they are not an OS-level proctoring guarantee.
 
 # 12. Logging Domain
 
@@ -628,6 +639,8 @@ exam_statistics (
     CONSTRAINT fk_exam_statistics_exam FOREIGN KEY (exam_id) REFERENCES exams(id)
 )
 ```
+
+Phase 5 calculates analytics from live exam, submission, grading, and anti-cheat data. The `exam_statistics` table is available for cached statistics in later release hardening.
 
 # 14. Relationship Summary
 
@@ -728,6 +741,8 @@ anti_cheat_events.user_id
 anti_cheat_events.exam_id
 
 grading_records.submission_id
+
+exam_statistics.exam_id
 
 # 18. Final Rule
 

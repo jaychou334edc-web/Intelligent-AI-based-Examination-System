@@ -415,20 +415,32 @@ Add monitoring and reporting layer.
 
 Phase 5 is complete only when:
 
-- Browser focus loss is logged.
-- Fullscreen exit is logged.
-- Tab visibility changes are logged.
-- Copy / paste attempts are logged where browser permits.
-- Network interruption is recorded where detectable.
-- Teacher can view behavior timeline.
-- Teacher can view score distribution.
-- Teacher can view question accuracy.
-- Teacher can view knowledge point statistics.
+- Browser focus loss is logged. Implemented through `browser_blur` events from the student exam page.
+- Fullscreen exit is logged. Implemented through `fullscreen_exit` browser events where fullscreen APIs are available.
+- Tab visibility changes are logged. Implemented through `tab_hidden` and follow-up visibility duration data.
+- Copy / paste attempts are logged where browser permits. Implemented through `copy_attempt` and `paste_attempt`.
+- Network interruption is recorded where detectable. Implemented through `network_offline`, `network_online`, and page visibility interruption events.
+- Teacher can view behavior timeline. Implemented in the teacher monitoring page and `/api/teacher/monitoring/exams/{examId}/events`.
+- Teacher can view score distribution. Implemented in `/api/teacher/monitoring/exams/{examId}/analytics`.
+- Teacher can view question accuracy. Implemented in the same analytics API and UI.
+- Teacher can view knowledge point statistics. Implemented in the same analytics API and UI.
 - Backend tests pass.
 - Frontend build or type check passes when dependencies are available.
 - API documentation is updated.
 - Git commit is ready.
 - Git tag `v0.6.0-phase5` is ready after commit.
+
+## Current Phase 5 Implementation Note
+
+Phase 5 delivers browser-level monitoring and teacher-facing analytics:
+
+```text
+Student takes exam -> browser events are recorded -> teacher opens monitoring page -> timeline and analytics are computed from backend data
+```
+
+The anti-cheat layer is intentionally honest about browser limits. It records observable events such as window blur, hidden tabs, fullscreen exit, copy/paste attempts, refresh, and network state changes. It does not claim to block all cheating or monitor the operating system.
+
+Analytics are computed from current exam, submission, grading, and anti-cheat data. `exam_statistics` exists for future cached summaries, but Phase 5 favors live computed values to keep the workflow reliable during development.
 
 # 11. Phase 6 - Deployment + Release
 

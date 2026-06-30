@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getStudentExam, saveStudentAnswer, submitStudentExam, type ExamDetail, type ExamQuestion } from '../api/exams'
+import { recordAntiCheatEvent, type AntiCheatEventPayload } from '../api/monitoring'
 import { loadPaperImageUrl } from '../api/papers'
 
 const props = defineProps<{
@@ -19,6 +20,8 @@ const imageUrls = ref<Record<string, string>>({})
 const now = ref(Date.now())
 let timerId: number | undefined
 let autoSaveId: number | undefined
+let lastHiddenAt = 0
+let eventQueue = Promise.resolve()
 
 const currentQuestion = computed(() => exam.value?.questions[currentIndex.value] ?? null)
 const isSubmitted = computed(() => exam.value?.submissionStatus === 'submitted')
@@ -56,11 +59,141 @@ async function loadExam() {
     exam.value = await getStudentExam(props.examId)
     answers.value = Object.fromEntries(exam.value.questions.map((question) => [question.id, question.savedAnswer ?? '']))
     startCountdown()
+    if (!isSubmitted.value) {
+      installMonitoringListeners()
+    }
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '考试加载失败')
   } finally {
     loading.value = false
   }
+}
+
+function reportEvent(payload: AntiCheatEventPayload) {
+  if (isSubmitted.value) {
+    return
+  }
+  eventQueue = eventQueue
+    .then(() => recordAntiCheatEvent(props.examId, payload).then(() => undefined))
+    .catch(() => undefined)
+}
+
+function currentEventData(extra: Record<string, unknown> = {}) {
+  return {
+    questionIndex: currentIndex.value + 1,
+    questionId: currentQuestion.value?.id,
+    remainingSeconds: remainingSeconds.value,
+    path: window.location.pathname,
+    ...extra,
+  }
+}
+
+function handleWindowBlur() {
+  reportEvent({
+    eventType: 'browser_blur',
+    eventLevel: 'warning',
+    eventData: currentEventData(),
+  })
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === 'hidden') {
+    lastHiddenAt = Date.now()
+    reportEvent({
+      eventType: 'tab_hidden',
+      eventLevel: 'warning',
+      eventData: currentEventData({ visibilityState: document.visibilityState }),
+    })
+    return
+  }
+  if (lastHiddenAt > 0) {
+    reportEvent({
+      eventType: 'abnormal_disconnect',
+      eventLevel: 'info',
+      eventData: currentEventData({ hiddenMs: Date.now() - lastHiddenAt }),
+    })
+  }
+}
+
+function handleFullscreenChange() {
+  if (!document.fullscreenElement) {
+    reportEvent({
+      eventType: 'fullscreen_exit',
+      eventLevel: 'warning',
+      eventData: currentEventData(),
+    })
+  }
+}
+
+function handleCopy() {
+  reportEvent({
+    eventType: 'copy_attempt',
+    eventLevel: 'critical',
+    eventData: currentEventData(),
+  })
+}
+
+function handlePaste() {
+  reportEvent({
+    eventType: 'paste_attempt',
+    eventLevel: 'critical',
+    eventData: currentEventData(),
+  })
+}
+
+function handleOffline() {
+  reportEvent({
+    eventType: 'network_offline',
+    eventLevel: 'critical',
+    eventData: currentEventData(),
+  })
+}
+
+function handleOnline() {
+  reportEvent({
+    eventType: 'network_online',
+    eventLevel: 'info',
+    eventData: currentEventData(),
+  })
+}
+
+function handleBeforeUnload() {
+  reportEvent({
+    eventType: 'page_refresh',
+    eventLevel: 'warning',
+    eventData: currentEventData(),
+  })
+}
+
+function installMonitoringListeners() {
+  window.removeEventListener('blur', handleWindowBlur)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  document.removeEventListener('copy', handleCopy)
+  document.removeEventListener('paste', handlePaste)
+  window.removeEventListener('offline', handleOffline)
+  window.removeEventListener('online', handleOnline)
+  window.removeEventListener('beforeunload', handleBeforeUnload)
+
+  window.addEventListener('blur', handleWindowBlur)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  document.addEventListener('fullscreenchange', handleFullscreenChange)
+  document.addEventListener('copy', handleCopy)
+  document.addEventListener('paste', handlePaste)
+  window.addEventListener('offline', handleOffline)
+  window.addEventListener('online', handleOnline)
+  window.addEventListener('beforeunload', handleBeforeUnload)
+}
+
+function removeMonitoringListeners() {
+  window.removeEventListener('blur', handleWindowBlur)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  document.removeEventListener('copy', handleCopy)
+  document.removeEventListener('paste', handlePaste)
+  window.removeEventListener('offline', handleOffline)
+  window.removeEventListener('online', handleOnline)
+  window.removeEventListener('beforeunload', handleBeforeUnload)
 }
 
 function startCountdown() {
@@ -213,6 +346,7 @@ async function submitExam(auto = false) {
         answer: answers.value[question.id] || '',
       })),
     )
+    removeMonitoringListeners()
     ElMessage.success(auto ? '考试时间到，系统已自动提交' : '考试已提交')
     await router.push('/student/results')
   } catch (error) {
@@ -241,6 +375,7 @@ watch(
 
 onMounted(loadExam)
 onBeforeUnmount(() => {
+  removeMonitoringListeners()
   clearImageUrls()
   if (timerId) {
     window.clearInterval(timerId)
