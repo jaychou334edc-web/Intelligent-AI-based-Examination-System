@@ -21,6 +21,9 @@ node_modules/
 logs/
 *.log
 
+# Local test documents
+*.docx
+
 # Local config and secrets
 .env
 *.local

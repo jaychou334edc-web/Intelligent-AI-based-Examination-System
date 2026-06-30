@@ -44,6 +44,9 @@ public class RoleAccessInterceptor implements HandlerInterceptor {
         if (path.startsWith("/api/student/")) {
             return UserRole.STUDENT;
         }
+        if (path.startsWith("/api/papers") || path.startsWith("/api/ai/") || path.startsWith("/api/questions")) {
+            return UserRole.TEACHER;
+        }
         return null;
     }
 }

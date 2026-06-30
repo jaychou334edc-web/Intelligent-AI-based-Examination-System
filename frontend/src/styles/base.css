@@ -49,7 +49,8 @@ h2 {
 }
 
 .login-page,
-.workspace-page {
+.workspace-page,
+.paper-page {
   min-height: 100vh;
   padding: 48px;
 }
@@ -220,6 +221,84 @@ h2 {
   margin-top: 20px;
 }
 
+.paper-page {
+  display: grid;
+  gap: 24px;
+}
+
+.page-header,
+.review-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.tool-grid {
+  display: grid;
+  grid-template-columns: 420px minmax(0, 1fr);
+  gap: 20px;
+}
+
+.upload-card,
+.raw-card {
+  min-height: 360px;
+}
+
+.upload-copy {
+  display: grid;
+  gap: 8px;
+  color: #334155;
+}
+
+.upload-copy span {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.review-section {
+  display: grid;
+  gap: 18px;
+}
+
+.question-list {
+  display: grid;
+  gap: 16px;
+}
+
+.question-editor {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.question-editor-title,
+.option-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.question-fields {
+  display: grid;
+  grid-template-columns: 180px 140px repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.option-list {
+  display: grid;
+  gap: 10px;
+}
+
+.option-key {
+  width: 72px;
+  flex: 0 0 72px;
+}
+
 @media (max-width: 720px) {
   .login-page,
   .workspace-page {
@@ -227,8 +306,18 @@ h2 {
   }
 
   .login-page,
+  .tool-grid,
+  .question-fields,
   .workspace-grid {
     grid-template-columns: 1fr;
+  }
+
+  .page-header,
+  .review-heading,
+  .question-editor-title,
+  .option-row {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .workspace-hero {

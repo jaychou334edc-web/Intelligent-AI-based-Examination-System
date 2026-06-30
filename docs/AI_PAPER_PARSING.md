@@ -1,471 +1,145 @@
-# AI Paper Parsing System (Word to Structured Exam)
+# AI Question Import Pipeline
 
-Version: 2.0
+Version: Phase 2
 
-Status: Core Feature
-
-Priority: P0
+Status: Active
 
 # 1. Feature Overview
 
-This module converts arbitrary Microsoft Word (.docx) exam papers into structured exam data using deterministic parsing and AI understanding.
+This module imports exam questions from teacher-uploaded source files into the question bank.
 
-The main system is Java-based.
+Supported input in Phase 2:
 
-Python may be used as an optional AI parsing service when it provides clear advantages for document extraction, image handling, or prompt preprocessing.
+- `.docx`
+- `.txt`
 
-The system must support:
+The backend remains Java/Spring Boot. Python LangChain may be introduced later only as an optional internal service for OCR, visual parsing, or unusually complex layout preprocessing.
 
-- Unstructured Word documents
-- Mixed layout
-- Text
-- Tables
-- Images
-- No required template
-- Multiple question formats
-- Automatic question segmentation
-- Option extraction
-- Answer extraction if present
-- Score inference
-- Knowledge point inference
-
-# 2. Design Philosophy
-
-This system is not a simple OCR tool.
-
-It is a hybrid deterministic parsing plus AI understanding pipeline.
-
-Key principles:
-
-1. AI is used for understanding, not final storage.
-2. Java backend is the source of truth.
-3. Python parsing service is optional and replaceable.
-4. Deterministic code is used for validation.
-5. Human review is mandatory before final import.
-6. Raw AI output is never trusted directly.
-
-# 3. Input / Output Definition
-
-## Input
+# 2. Pipeline
 
 ```text
-.docx file uploaded by teacher
+Upload source file
+  -> Store original file
+  -> Extract text, tables, and image placeholders
+  -> Split content into chunks
+  -> Build strict DeepSeek prompts
+  -> Parse short-field JSON
+  -> Map to internal question model
+  -> Validate
+  -> Teacher review
+  -> Import approved questions into official question bank
 ```
 
-Stored in:
+# 3. Extraction Rules
 
-papers.file_path
+`.docx` extraction uses Apache POI:
 
-## Output
+- Preserve paragraph order.
+- Preserve table rows using `|` cell separators.
+- Insert image references as `[IMG:image_n]`.
+- Keep code text and line breaks as much as Apache POI can expose.
 
-Structured JSON:
+`.txt` extraction reads UTF-8 text directly.
+
+Images are not interpreted in Phase 2. If a question depends on image content, the placeholder is retained for teacher review. OCR or visual model parsing is a later enhancement.
+
+# 4. DeepSeek Prompt Contract
+
+System prompt:
+
+```text
+你是考试题库导入助手。把原文题目解析为 JSON。
+只输出 JSON，不要 Markdown，不要解释。格式为 {"questions":[...]}。
+questions 数组元素只允许这些短字段：
+t 题型: single/multi/judge/blank/essay
+c 题干: 不含选择题选项，必须原样保留 [IMG:文件名] 图片占位符
+o 选项数组: 选择题去掉 A/B/C/D 前缀；非选择题为空数组
+a 答案: single/multi/judge/blank 用数组；essay 用字符串；未知用 [] 或 ""
+e 解析: 没有则空字符串
+s 分值: 数字；未知按 single=2,multi=4,judge=1,blank=3,essay=10
+规则：
+- 单选只有一个正确选项，多选可有多个正确选项，答案字母用大写 A-H。
+- 判断题答案统一为 ["对"] 或 ["错"]。
+- 填空题答案按空顺序输出数组。
+- 若原文包含答案区或解析区，要合并到对应题目。
+- [IMG:xxx] 代表题目图片，它可能是题干、选项或解析的一部分，不要删除、改名或改写。
+- 不要编造原文没有的题目、选项、答案或解析。
+```
+
+User prompt per chunk:
+
+```text
+以下是题目原文第 {idx}/{len(chunks)} 段。请只抽取本段中完整出现的题目，输出 JSON 对象。
+
+{chunk}
+```
+
+# 5. JSON Contract
+
+DeepSeek response:
 
 ```json
 {
-  "title": "",
   "questions": [
     {
-      "type": "single_choice | multiple_choice | fill_blank | subjective | true_false",
-      "stem": "",
-      "options": [
-        {"key": "A", "text": ""},
-        {"key": "B", "text": ""}
-      ],
-      "answer": "",
-      "score": 5,
-      "knowledge_point": "",
-      "difficulty": ""
+      "t": "single",
+      "c": "题干",
+      "o": ["选项一", "选项二"],
+      "a": ["A"],
+      "e": "",
+      "s": 2
     }
   ]
 }
 ```
 
-# 4. System Architecture
-
-Pipeline:
-
-```text
-Word Upload
-    |
-    v
-Java Backend File Storage
-    |
-    v
-Extraction Layer
-    |-- Java Apache POI default
-    |-- Optional Python python-docx service
-    |
-    v
-Raw Text + Image References
-    |
-    v
-Segmentation Engine
-    |
-    v
-AI Prompt Builder
-    |
-    v
-DeepSeek API
-    |
-    v
-Raw AI JSON Output
-    |
-    v
-Validation Layer
-    |
-    v
-Normalization Layer
-    |
-    v
-Teacher Review Web Page
-    |
-    v
-Approved -> Question Bank
-```
-
-# 5. Module Breakdown
-
-## 5.1 Word Extraction Module
-
-### Responsibility
-
-Extract raw content from `.docx`.
-
-### Java Tooling
-
-- Apache POI
-
-### Optional Python Tooling
-
-- python-docx
-- Pillow if image processing is needed
-- FastAPI for service interface
-
-### Output format
-
-```json
-{
-  "text_blocks": [],
-  "tables": [],
-  "images": []
-}
-```
-
-### Rules
-
-- Preserve order
-- Preserve paragraph structure
-- Extract embedded images as file references
-- Never store extracted images in AI output only
-
-## 5.2 Segmentation Engine
-
-### Purpose
-
-Split raw document into logical question blocks.
-
-### Method
-
-Hybrid approach:
-
-1. Rule-based segmentation
-   - Detect "1."
-   - Detect Chinese numbering
-   - Detect "(1)"
-   - Detect option prefixes such as "A."
-2. AI-assisted segmentation fallback
-
-### Output
-
-```json
-[
-  {
-    "block_id": 1,
-    "raw_text": ""
-  }
-]
-```
-
-## 5.3 AI Prompt Builder
-
-### Purpose
-
-Convert segmented blocks into structured prompt for DeepSeek.
-
-### Prompt Template
-
-System Prompt:
-
-```text
-You are an expert exam paper parser.
-
-Task:
-Convert the following exam content into structured JSON.
-
-Rules:
-- Do not omit any question
-- Preserve question order
-- Detect question type
-- Extract options if present
-- Extract correct answer if present
-- If unknown, set null
-- Return JSON only
-```
-
-User Input:
-
-```text
-{segmented_blocks}
-```
-
-## 5.4 AI Parsing Service
-
-### API
-
-DeepSeek Chat Completion API
-
-### Expected Output
-
-Strict JSON only:
-
-```json
-{
-  "questions": []
-}
-```
-
-### Constraints
-
-- No markdown
-- No explanation text
-- No extra fields unless explicitly versioned
-
-## 5.5 Optional Python Service Contract
-
-The Python service may expose internal APIs:
-
-```http
-POST /internal/ai/parse-docx
-POST /internal/ai/extract-docx
-```
-
-The Java backend calls this service only through internal configuration.
-
-The Python service must not:
-
-- Access MySQL directly
-- Store final business data
-- Make authorization decisions
-- Publish exams
-- Assign final grades
-
-## 5.6 Validation Layer
-
-This is the most important safety layer.
-
-### Responsibilities
-
-- Validate JSON schema
-- Fix missing optional fields when safe
-- Normalize question types
-- Ensure score exists
-- Ensure options consistency
-- Ensure question count is reasonable
-
-### Rules
-
-If invalid:
-
-- Reject AI output
-- Retry prompt, max 2 times
-- If still invalid, fallback to manual review mode
-
-## 5.7 Normalization Engine
-
-Standardize data:
-
-### Question types mapping
-
-| AI Output | System Type     |
-| --------- | --------------- |
-| single    | single_choice   |
-| multi     | multiple_choice |
-| judge     | true_false      |
-| blank     | fill_blank      |
-| essay     | subjective      |
-
-### Score inference rules
-
-If missing:
-
-- single choice default = configurable
-- multiple choice default = configurable
-- true false default = configurable
-- fill blank default = configurable
-- subjective default = configurable
-
-## 5.8 Storage Layer
-
-Raw AI data is stored in:
-
-ai_parse_jobs
-
-ai_parsed_questions
-
-ai_logs
-
-Approved questions are later converted into:
-
-questions
-
-question_options
-
-question_answers
-
-## 5.9 Teacher Review System
-
-### UI Flow
-
-1. Upload Word.
-2. AI parses.
-3. Display structured questions.
-4. Teacher actions:
-
-- Accept
-- Modify
-- Delete
-- Merge
-- Split
-
-5. Final confirm -> push to question bank.
-
-# 6. Error Handling Strategy
-
-## AI Failure Cases
-
-### Case 1: Invalid JSON
-
-Retry parsing.
-
-### Case 2: Missing Questions
-
-Trigger re-segmentation and retry.
-
-### Case 3: Partial extraction
-
-Mark question as:
-
-```text
-status = "needs_review"
-```
-
-## System fallback
-
-If AI fails 3 times:
-
-Switch to manual parsing review page.
-
-# 7. Data Flow Mapping
-
-```text
-papers.id
-    |
-    v
-ai_parse_jobs
-    |
-    v
-ai_parsed_questions
-    |
-    v
-teacher review
-    |
-    v
-questions
-```
-
-# 8. API Design
-
-## Upload Paper
-
-```http
-POST /api/papers
-```
-
-## Start Parsing
-
-```http
-POST /api/ai/parse-paper
-```
-
-```json
-{
-  "paperId": 1
-}
-```
-
-## Get Parse Result
-
-```http
-GET /api/ai/parse-result/{paperId}
-```
-
-## Confirm Import
-
-```http
-POST /api/questions/import
-```
-
-# 9. Performance Requirements
-
-- Word extraction < 5s for normal papers
-- Segmentation < 2s
-- AI call < 20s
-- Validation < 1s
-- Total pipeline < 30s for normal papers
-
-# 10. Logging Requirements
-
-Every stage must log:
-
-- input size
-- parser type
-- AI request
-- AI response
-- validation result
-- retry count
-- elapsed time
-
-Stored in:
-
-ai_logs
-
-# 11. Security Constraints
-
-- No raw Word sent to browser unless explicitly previewed through authorized backend API
-- AI API key stored server-side only
-- No student access to parsing API
-- All parsing requires authentication
-- Python service, if used, is internal only
-
-# 12. Future Extensions
-
-Pluggable components:
-
-- OCR module
-- Multi-model AI routing
-- Fine-tuned parsing model
-- Template detection engine
-- Exam format classifier
-- Message queue based asynchronous parsing
-
-# 13. Definition of Done
-
-Feature is complete when:
-
-- Any .docx file can be uploaded.
-- System extracts questions reliably.
-- AI produces structured JSON.
-- Teacher can review results.
-- Approved questions enter question bank.
-- Failed cases fallback safely.
-- Java backend remains the source of truth.
+Internal mapping:
+
+| AI Type | Internal Type |
+| --- | --- |
+| `single` | `single_choice` |
+| `multi` | `multiple_choice` |
+| `judge` | `true_false` |
+| `blank` | `fill_blank` |
+| `essay` | `subjective` |
+
+# 6. Storage
+
+Temporary AI data:
+
+- `papers`
+- `ai_parse_jobs`
+- `ai_parsed_questions`
+- `ai_logs`
+
+Approved question bank data:
+
+- `questions`
+- `question_options`
+- `question_answers`
+
+AI output never enters the official question bank until a teacher reviews and confirms it.
+
+# 7. Security
+
+- DeepSeek API Key is configured only through ignored local config or environment variables.
+- The key is never committed to Git and never bundled into frontend code.
+- Browser clients never call DeepSeek directly.
+- Students cannot access parsing APIs.
+
+# 8. Definition of Done
+
+Phase 2 is complete when:
+
+- `.docx` upload works.
+- `.txt` upload works.
+- Original files are retained.
+- Apache POI extracts Word text, tables, and image placeholders.
+- DeepSeek prompt uses the short-field import contract.
+- JSON is mapped and validated.
+- Teacher can edit questions, options, answers, analysis, and scores.
+- Approved questions are imported into official question bank tables.
+- Backend tests pass.
+- Frontend build passes.
+- API documentation is updated.
+- Git commit and tag `v0.3.0-phase2` are ready.

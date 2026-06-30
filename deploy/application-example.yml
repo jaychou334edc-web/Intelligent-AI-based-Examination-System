@@ -19,6 +19,8 @@ aes:
       username: admin
       password: change_this_before_production
       real-name: 系统管理员
+    dev-seed:
+      enabled: false
   cors:
     allowed-origins:
       - http://localhost:5173
@@ -39,3 +41,6 @@ aes:
   ai:
     deepseek-api-key: change_me
     deepseek-base-url: https://api.deepseek.com
+    mock-enabled: false
+    fallback-to-rule-parser: true
+    model: deepseek-chat

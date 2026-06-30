@@ -29,7 +29,7 @@ const roleMeta: Record<UserRole, { title: string; subtitle: string; tone: string
     subtitle: '集中处理题库建设、试卷管理、考试发布与成绩分析。',
     tone: 'green',
     label: '教师',
-    actions: ['题库维护', '组卷审核', '成绩分析'],
+    actions: ['AI 题库导入', '题库维护', '成绩分析'],
   },
   student: {
     title: '学生考试入口',
@@ -42,6 +42,20 @@ const roleMeta: Record<UserRole, { title: string; subtitle: string; tone: string
 
 const currentMeta = computed(() => roleMeta[props.role])
 const displayTitle = computed(() => shell.value?.title ?? currentMeta.value.title)
+
+function actionTarget(action: string) {
+  if (props.role === 'teacher' && action === 'AI 题库导入') {
+    return '/teacher/papers'
+  }
+  return ''
+}
+
+async function openAction(action: string) {
+  const target = actionTarget(action)
+  if (target) {
+    await router.push(target)
+  }
+}
 
 async function loadShell() {
   loading.value = true
@@ -115,7 +129,13 @@ onMounted(loadShell)
         <p class="eyebrow">Navigation</p>
         <h2>功能入口</h2>
         <div class="action-list">
-          <el-button v-for="action in currentMeta.actions" :key="action" plain disabled>
+          <el-button
+            v-for="action in currentMeta.actions"
+            :key="action"
+            plain
+            :disabled="!actionTarget(action)"
+            @click="openAction(action)"
+          >
             {{ action }}
           </el-button>
         </div>

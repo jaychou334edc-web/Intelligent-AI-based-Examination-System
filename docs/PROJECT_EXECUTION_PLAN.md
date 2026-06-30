@@ -65,7 +65,7 @@ Phase 0.5 -> Engineering Standards
 
 Phase 1 -> Core System Skeleton
 
-Phase 2 -> Paper Upload + AI Parsing
+Phase 2 -> AI Question Import + Paper Parsing
 
 Phase 3 -> Examination + Student Flow
 
@@ -205,27 +205,28 @@ Phase 1 is complete only when:
 - Git commit is ready.
 - Git tag `v0.2.0-phase1` is ready after commit.
 
-# 7. Phase 2 - Paper Upload + AI Parsing
+# 7. Phase 2 - AI Question Import + Paper Parsing
 
 ## Goal
 
-Enable Word upload and AI parsing pipeline.
+Enable AI-assisted question import from Word and text source files.
 
 ## Features
 
-- Word (.docx) upload
+- Word (.docx) and text (.txt) upload
 - File storage system
-- Java Apache POI extraction
-- Optional Python extraction service if needed
+- Java Apache POI extraction for Word paragraphs, tables, and image placeholders
+- UTF-8 text extraction for txt files
+- Optional Python LangChain / OCR / visual parsing service if it provides clear value later
 - AI parsing pipeline integration with DeepSeek
-- Segmentation engine
-- AI JSON generation
+- Chunking engine
+- AI JSON generation using the short-field question import protocol
 - Validation layer
 - Teacher review web UI
 
 ## Deliverables
 
-- Upload Word file
+- Upload Word or TXT source file
 - Parse into structured questions
 - Display parsed questions
 - Teacher approves or edits
@@ -235,20 +236,39 @@ Enable Word upload and AI parsing pipeline.
 
 Phase 2 is complete only when:
 
-- Word upload succeeds.
-- Original Word file is retained.
+- Word and TXT upload succeeds.
+- Original source file is retained.
 - Apache POI extraction succeeds.
+- TXT extraction succeeds.
+- Images embedded in Word are represented as stable `[IMG:image_n]` placeholders.
 - DeepSeek returns JSON or configured mock fallback works in development.
+- DeepSeek prompt follows the short-field protocol `t/c/o/a/e/s`.
 - JSON schema validation passes.
 - Invalid AI output is rejected and logged.
-- Teacher review page can edit parsed questions.
+- Teacher review page can edit parsed questions, answers, options, analysis, and score.
 - Approved questions enter official question bank tables.
 - AI raw output remains in AI temporary tables.
+- DeepSeek API Key stays in ignored local config or environment variables, never in committed code.
 - Unit tests pass.
 - Integration tests cover upload, parse result, and import flow.
+- Frontend build passes.
 - API documentation is updated.
 - Git commit is ready.
 - Git tag `v0.3.0-phase2` is ready after commit.
+
+## Current Phase 2 Implementation Note
+
+The current implementation uses Java as the source of truth and follows a LangChain-style chain inside the backend:
+
+```text
+Document extraction -> chunking -> prompt building -> DeepSeek call -> JSON mapping -> validation -> teacher review -> official import
+```
+
+The local development implementation can still use a rule-based mock parser when `AES_AI_MOCK_ENABLED=true`.
+
+This satisfies the runnable local review flow before a real DeepSeek API key is configured.
+
+When DeepSeek is enabled, the Java backend must keep the same validation, temporary AI storage, teacher review, and official import path. Python LangChain may be introduced later only as an internal optional service for OCR, vision, or complex layout preprocessing; it must not access MySQL or write final business data.
 
 # 8. Phase 3 - Examination System
 

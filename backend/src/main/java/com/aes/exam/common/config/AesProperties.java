@@ -11,6 +11,7 @@ public class AesProperties {
     private String uploadDir;
     private AuthProperties auth = new AuthProperties();
     private CorsProperties cors = new CorsProperties();
+    private AiProperties ai = new AiProperties();
 
     public String getSchoolName() {
         return schoolName;
@@ -42,6 +43,14 @@ public class AesProperties {
 
     public void setCors(CorsProperties cors) {
         this.cors = cors;
+    }
+
+    public AiProperties getAi() {
+        return ai;
+    }
+
+    public void setAi(AiProperties ai) {
+        this.ai = ai;
     }
 
     public static class CorsProperties {
@@ -106,6 +115,7 @@ public class AesProperties {
 
         private int tokenTtlHours = 8;
         private InitialAdminProperties initialAdmin = new InitialAdminProperties();
+        private DevSeedProperties devSeed = new DevSeedProperties();
 
         public int getTokenTtlHours() {
             return tokenTtlHours;
@@ -121,6 +131,14 @@ public class AesProperties {
 
         public void setInitialAdmin(InitialAdminProperties initialAdmin) {
             this.initialAdmin = initialAdmin;
+        }
+
+        public DevSeedProperties getDevSeed() {
+            return devSeed;
+        }
+
+        public void setDevSeed(DevSeedProperties devSeed) {
+            this.devSeed = devSeed;
         }
     }
 
@@ -152,6 +170,68 @@ public class AesProperties {
 
         public void setRealName(String realName) {
             this.realName = realName;
+        }
+    }
+
+    public static class DevSeedProperties {
+
+        private boolean enabled = false;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+    }
+
+    public static class AiProperties {
+
+        private String deepseekApiKey = "";
+        private String deepseekBaseUrl = "https://api.deepseek.com";
+        private boolean mockEnabled = true;
+        private boolean fallbackToRuleParser = true;
+        private String model = "deepseek-chat";
+
+        public String getDeepseekApiKey() {
+            return deepseekApiKey;
+        }
+
+        public void setDeepseekApiKey(String deepseekApiKey) {
+            this.deepseekApiKey = deepseekApiKey;
+        }
+
+        public String getDeepseekBaseUrl() {
+            return deepseekBaseUrl;
+        }
+
+        public void setDeepseekBaseUrl(String deepseekBaseUrl) {
+            this.deepseekBaseUrl = deepseekBaseUrl;
+        }
+
+        public boolean isMockEnabled() {
+            return mockEnabled;
+        }
+
+        public void setMockEnabled(boolean mockEnabled) {
+            this.mockEnabled = mockEnabled;
+        }
+
+        public boolean isFallbackToRuleParser() {
+            return fallbackToRuleParser;
+        }
+
+        public void setFallbackToRuleParser(boolean fallbackToRuleParser) {
+            this.fallbackToRuleParser = fallbackToRuleParser;
+        }
+
+        public String getModel() {
+            return model;
+        }
+
+        public void setModel(String model) {
+            this.model = model;
         }
     }
 }

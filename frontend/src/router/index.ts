@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, type RouteLocationNormalized } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import RoleShellView from '../views/RoleShellView.vue'
+import TeacherPaperParsingView from '../views/TeacherPaperParsingView.vue'
 import { useAuthStore } from '../stores/auth'
 import type { UserRole } from '../api/auth'
 
@@ -40,6 +41,12 @@ const router = createRouter({
       component: RoleShellView,
       meta: { requiresAuth: true, role: 'teacher' },
       props: { role: 'teacher' },
+    },
+    {
+      path: '/teacher/papers',
+      name: 'teacher-papers',
+      component: TeacherPaperParsingView,
+      meta: { requiresAuth: true, role: 'teacher' },
     },
     {
       path: '/student',

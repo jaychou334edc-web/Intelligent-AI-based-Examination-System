@@ -144,6 +144,18 @@ Implemented tables:
 
 The initial administrator is inserted by application bootstrap code instead of a fixed SQL password, because the password must come from external deployment configuration and be hashed with BCrypt.
 
+Phase 2 creates paper parsing and question bank tables through `database/migration/V3__paper_ai_question_core.sql`.
+
+Implemented tables:
+
+- `papers`
+- `ai_parse_jobs`
+- `ai_parsed_questions`
+- `questions`
+- `question_options`
+- `question_answers`
+- `ai_logs`
+
 # 5. Paper Domain
 
 ## 5.1 papers

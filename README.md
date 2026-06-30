@@ -53,6 +53,33 @@ password: Admin@123456
 
 生产环境必须通过环境变量或外部配置修改 `AES_INITIAL_ADMIN_PASSWORD`，不要使用默认密码上线。
 
+## Phase 2 AI 题库导入
+
+当前工程已接入教师端 AI 题库导入闭环：
+
+- 教师上传 `.docx` 或 `.txt` 题目源文件
+- 后端保存原始源文件
+- Apache POI 提取 Word 段落、表格和图片占位符
+- TXT 文件按 UTF-8 读取
+- Java 后端按“提取 -> 分块 -> Prompt -> DeepSeek -> 校验/映射 -> 审核 -> 入库”的链式流程处理
+- DeepSeek 使用题库导入短字段协议：`t/c/o/a/e/s`
+- AI 原始结果进入临时审核表
+- 教师页面可编辑题干、题型、选项、答案、解析、分值
+- 教师确认后写入正式题库表
+- 学生不能访问教师解析接口
+
+本机 `application-local.yml` 已配置 DeepSeek 本地密钥和模型 `deepseek-v4-flash`，该文件被 `.gitignore` 忽略，不会提交到仓库。部署到学校服务器时也应通过本地配置文件或环境变量配置 API Key，不要写入代码或构建产物。
+
+本地测试账号：
+
+```text
+admin / Admin@123456
+teacher / Teacher@123456
+student / Student@123456
+```
+
+`teacher` 登录后进入“AI 题库导入”即可上传本地 `.docx` 或 `.txt` 测试。
+
 ## 技术栈
 
 - 后端：Java 21 target，Spring Boot 3.x
@@ -86,6 +113,13 @@ Phase 1 认证接口：
 - `GET /api/teacher/shell`
 - `GET /api/student/shell`
 
+Phase 2 试卷解析接口：
+
+- `POST /api/papers`
+- `POST /api/ai/parse-paper`
+- `GET /api/ai/parse-result/{paperId}`
+- `POST /api/questions/import`
+
 完整接口文档运行后访问 `/swagger-ui.html`。
 
 ## 本地开发命令
@@ -96,6 +130,14 @@ Phase 1 认证接口：
 cd backend
 & 'E:\MAVEN\apache-maven-3.8.8\bin\mvn.cmd' test
 & 'E:\MAVEN\apache-maven-3.8.8\bin\mvn.cmd' spring-boot:run
+```
+
+当前本机已配置 ignored 的 `application-local.yml`，使用 MySQL：
+
+```text
+database: aes
+username: root
+password: 123456
 ```
 
 前端：
@@ -118,4 +160,5 @@ npm.cmd run dev
 - `v0.1.0-phase0`
 - `v0.1.5-phase0.5`
 - `v0.2.0-phase1`
+- `v0.3.0-phase2`
 - `v1.0.0-release`
