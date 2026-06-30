@@ -13,6 +13,7 @@ import com.aes.exam.exam.vo.ExamDetailVO;
 import com.aes.exam.exam.vo.ExamSummaryVO;
 import com.aes.exam.exam.vo.SaveAnswerVO;
 import com.aes.exam.exam.vo.SubmitExamVO;
+import com.aes.exam.grading.service.GradingService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,9 +23,11 @@ import org.springframework.util.StringUtils;
 public class ExamService {
 
     private final ExamRepository examRepository;
+    private final GradingService gradingService;
 
-    public ExamService(ExamRepository examRepository) {
+    public ExamService(ExamRepository examRepository, GradingService gradingService) {
         this.examRepository = examRepository;
+        this.gradingService = gradingService;
     }
 
     @Transactional
@@ -136,7 +139,9 @@ public class ExamService {
                 throw new BusinessException(ErrorCode.BUSINESS_ERROR, "题目不属于当前考试");
             }
         }
-        return examRepository.submit(submissionId, examId, answers);
+        SubmitExamVO submitted = examRepository.submit(submissionId, examId, answers);
+        gradingService.gradeSubmittedSubmission(submissionId);
+        return examRepository.findSubmitResult(submitted.submissionId());
     }
 
     private SecurityContext currentUser() {

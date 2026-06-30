@@ -37,4 +37,6 @@ public interface ExamRepository {
     SaveAnswerVO saveAnswer(Long submissionId, Long examId, SaveAnswerRequest request);
 
     SubmitExamVO submit(Long submissionId, Long examId, List<SaveAnswerRequest> answers);
+
+    SubmitExamVO findSubmitResult(Long submissionId);
 }

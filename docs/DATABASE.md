@@ -166,6 +166,13 @@ Implemented tables:
 - `submissions`
 - `submission_answers`
 
+Phase 4 creates grading support through `database/migration/V6__grading_core.sql`.
+
+Implemented changes:
+
+- `submissions.graded_at`
+- `grading_records`
+
 # 5. Paper Domain
 
 ## 5.1 papers
@@ -441,6 +448,7 @@ submissions (
     started_at DATETIME NOT NULL,
     submitted_at DATETIME,
     total_score DECIMAL(8,2),
+    graded_at DATETIME,
 
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
@@ -491,6 +499,7 @@ grading_records (
     ai_suggestion_score DECIMAL(8,2),
     ai_comment TEXT,
     teacher_comment TEXT,
+    grading_status VARCHAR(32) NOT NULL DEFAULT 'pending',
 
     graded_at DATETIME,
 
@@ -502,6 +511,21 @@ grading_records (
     CONSTRAINT fk_grading_records_grader FOREIGN KEY (grader_id) REFERENCES users(id)
 )
 ```
+
+Grading status values:
+
+- pending
+- auto_graded
+- manual_graded
+
+Phase 4 grading rules:
+
+- Choice and true/false answers are graded automatically when a student submits.
+- Fill blank answers remain pending by default and are confirmed by the teacher.
+- Fill blank auto-grading can be enabled through backend configuration `aes.grading.auto-grade-fill-blank=true`.
+- Subjective and code answers remain pending until teacher grading.
+- `submissions.total_score` is refreshed from `grading_records.final_score`.
+- `submissions.graded_at` is filled only when no grading record remains `pending`.
 
 # 11. Anti-Cheat Domain
 

@@ -6,6 +6,8 @@ import TeacherQuestionBankView from '../views/TeacherQuestionBankView.vue'
 import TeacherExamManagementView from '../views/TeacherExamManagementView.vue'
 import StudentExamListView from '../views/StudentExamListView.vue'
 import StudentExamTakingView from '../views/StudentExamTakingView.vue'
+import TeacherGradingView from '../views/TeacherGradingView.vue'
+import StudentResultsView from '../views/StudentResultsView.vue'
 import { useAuthStore } from '../stores/auth'
 import type { UserRole } from '../api/auth'
 
@@ -65,6 +67,12 @@ const router = createRouter({
       meta: { requiresAuth: true, role: 'teacher' },
     },
     {
+      path: '/teacher/grading',
+      name: 'teacher-grading',
+      component: TeacherGradingView,
+      meta: { requiresAuth: true, role: 'teacher' },
+    },
+    {
       path: '/student',
       name: 'student',
       component: RoleShellView,
@@ -83,6 +91,12 @@ const router = createRouter({
       component: StudentExamTakingView,
       meta: { requiresAuth: true, role: 'student' },
       props: (route) => ({ examId: Number(route.params.examId) }),
+    },
+    {
+      path: '/student/results',
+      name: 'student-results',
+      component: StudentResultsView,
+      meta: { requiresAuth: true, role: 'student' },
     },
   ],
 })

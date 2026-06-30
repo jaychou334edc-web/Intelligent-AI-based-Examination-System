@@ -214,7 +214,7 @@ async function submitExam(auto = false) {
       })),
     )
     ElMessage.success(auto ? '考试时间到，系统已自动提交' : '考试已提交')
-    await router.push('/student/exams')
+    await router.push('/student/results')
   } catch (error) {
     if (error instanceof Error) {
       ElMessage.error(error.message)

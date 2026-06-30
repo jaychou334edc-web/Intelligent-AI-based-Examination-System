@@ -359,19 +359,33 @@ Introduce automatic and manual grading system.
 
 Phase 4 is complete only when:
 
-- Objective grading works for supported question types.
-- Fill blank matching rules are configurable.
-- Subjective answers appear in grading UI.
-- Teacher can assign and modify subjective scores.
-- AI suggested score is optional and never final by itself.
-- Final score is persisted.
-- Grading records are traceable.
-- Statistics can read final scores.
+- Objective grading works for supported question types. Implemented for single choice, multiple choice, and true/false on submission.
+- Fill blank matching rules are configurable. Implemented behind `aes.grading.auto-grade-fill-blank`, defaulting to manual review.
+- Subjective answers appear in grading UI. Implemented in the teacher grading page.
+- Teacher can assign and modify subjective scores. Implemented through manual score save.
+- AI suggested score is optional and never final by itself. Phase 4 stores room for AI suggestion fields but does not allow AI to finalize grades.
+- Final score is persisted. Implemented through `grading_records.final_score` and `submissions.total_score`.
+- Grading records are traceable. Implemented through one grading record per submission answer with status, grader, comment, and timestamps.
+- Statistics can read final scores. `submissions.total_score` and `graded_at` are now available for Phase 5 analytics.
 - Backend tests pass.
 - Frontend build or type check passes when dependencies are available.
 - API documentation is updated.
 - Git commit is ready.
 - Git tag `v0.5.0-phase4` is ready after commit.
+
+## Current Phase 4 Implementation Note
+
+Phase 4 delivers the runnable grading and result workflow:
+
+```text
+Student submits exam -> objective answers are auto-graded -> pending answers enter teacher grading -> teacher saves final score -> student views result
+```
+
+The current classroom behavior follows the user's requirement: the system automatically grades choices and true/false questions, while fill blank and subjective/code answers wait for teacher confirmation by default.
+
+Fill blank auto-grading exists as a configurable backend capability for later school policy changes, but it is disabled by default.
+
+AI suggested scoring is intentionally not active yet. The database contains optional AI suggestion fields, but Phase 4 keeps the teacher as the only final authority for non-objective answers.
 
 # 10. Phase 5 - Anti-Cheat + Analytics
 

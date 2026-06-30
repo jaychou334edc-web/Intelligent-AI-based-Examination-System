@@ -9,8 +9,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.aes.exam.common.config.AesProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -37,10 +39,20 @@ class ExamFlowTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private AesProperties aesProperties;
+
+    @AfterEach
+    void resetGradingConfig() {
+        aesProperties.getGrading().setAutoGradeFillBlank(false);
+    }
+
     @Test
     void teacherCanPublishAndStudentCanSubmitExam() throws Exception {
         String teacherToken = login("teacher", "Teacher@123456");
         Long questionId = createQuestion();
+        Long fillBlankQuestionId = createFillBlankQuestion();
+        Long subjectiveQuestionId = createSubjectiveQuestion();
 
         String createResponse = mockMvc.perform(post("/api/teacher/exams")
                 .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken))
@@ -58,9 +70,9 @@ class ExamFlowTest {
         mockMvc.perform(post("/api/teacher/exams/" + examId + "/questions")
                 .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"questionIds\":[" + questionId + "]}"))
+                .content("{\"questionIds\":[" + questionId + "," + fillBlankQuestionId + "," + subjectiveQuestionId + "]}"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data.questionCount", is(1)));
+            .andExpect(jsonPath("$.data.questionCount", is(3)));
 
         mockMvc.perform(post("/api/teacher/exams/" + examId + "/publish")
                 .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken)))
@@ -77,7 +89,7 @@ class ExamFlowTest {
         mockMvc.perform(get("/api/student/exams/" + examId)
                 .header(HttpHeaders.AUTHORIZATION, bearer(studentToken)))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data.questions.length()", is(1)))
+            .andExpect(jsonPath("$.data.questions.length()", is(3)))
             .andExpect(jsonPath("$.data.questions[0].answer", nullValue()))
             .andExpect(jsonPath("$.data.submissionStartedAt", notNullValue()));
 
@@ -91,9 +103,50 @@ class ExamFlowTest {
         mockMvc.perform(post("/api/student/exams/" + examId + "/submit")
                 .header(HttpHeaders.AUTHORIZATION, bearer(studentToken))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"answers\":[{\"questionId\":" + questionId + ",\"answer\":\"A\"}]}"))
+                .content("{\"answers\":[{\"questionId\":" + questionId + ",\"answer\":\"A\"},{\"questionId\":"
+                    + fillBlankQuestionId + ",\"answer\":\"Spring Boot\"},{\"questionId\":"
+                    + subjectiveQuestionId + ",\"answer\":\"需要权限控制保护考试数据\"}]}"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data.status", is("submitted")));
+            .andExpect(jsonPath("$.data.status", is("submitted")))
+            .andExpect(jsonPath("$.data.totalScore", is(2.0)));
+
+        String teacherDetail = mockMvc.perform(get("/api/teacher/grading/submissions")
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.length()", greaterThanOrEqualTo(1)))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+        Long submissionId = objectMapper.readTree(teacherDetail).path("data").get(0).path("submissionId").asLong();
+
+        mockMvc.perform(get("/api/teacher/grading/submissions/" + submissionId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.totalScore", is(2.0)))
+            .andExpect(jsonPath("$.data.answers[0].gradingStatus", is("auto_graded")))
+            .andExpect(jsonPath("$.data.answers[1].gradingStatus", is("pending")))
+            .andExpect(jsonPath("$.data.answers[2].gradingStatus", is("pending")));
+
+        mockMvc.perform(post("/api/teacher/grading/submissions/" + submissionId + "/answers")
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"questionId\":" + fillBlankQuestionId + ",\"score\":3,\"teacherComment\":\"填空正确\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.totalScore", is(5.0)))
+            .andExpect(jsonPath("$.data.answers[1].gradingStatus", is("manual_graded")));
+
+        mockMvc.perform(post("/api/teacher/grading/submissions/" + submissionId + "/answers")
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"questionId\":" + subjectiveQuestionId + ",\"score\":8,\"teacherComment\":\"要点基本完整\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.totalScore", is(13.0)))
+            .andExpect(jsonPath("$.data.answers[2].gradingStatus", is("manual_graded")));
+
+        mockMvc.perform(get("/api/student/results/" + submissionId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(studentToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.totalScore", is(13.0)));
 
         mockMvc.perform(post("/api/student/exams/" + examId + "/answers")
                 .header(HttpHeaders.AUTHORIZATION, bearer(studentToken))
@@ -101,6 +154,65 @@ class ExamFlowTest {
                 .content("{\"questionId\":" + questionId + ",\"answer\":\"B\"}"))
             .andExpect(status().isBadRequest());
     }
+
+    @Test
+    void fillBlankCanBeAutoGradedWhenConfigured() throws Exception {
+        aesProperties.getGrading().setAutoGradeFillBlank(true);
+        String teacherToken = login("teacher", "Teacher@123456");
+        Long fillBlankQuestionId = createFillBlankQuestion();
+
+        String createResponse = mockMvc.perform(post("/api/teacher/exams")
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"title":"填空自动评分测试","description":"Phase 4 fill blank","durationMinutes":30}
+                    """))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+        Long examId = objectMapper.readTree(createResponse).path("data").path("id").asLong();
+
+        mockMvc.perform(post("/api/teacher/exams/" + examId + "/questions")
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"questionIds\":[" + fillBlankQuestionId + "]}"))
+            .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/teacher/exams/" + examId + "/publish")
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken)))
+            .andExpect(status().isOk());
+
+        String studentToken = login("student", "Student@123456");
+
+        mockMvc.perform(get("/api/student/exams/" + examId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(studentToken)))
+            .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/student/exams/" + examId + "/submit")
+                .header(HttpHeaders.AUTHORIZATION, bearer(studentToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"answers\":[{\"questionId\":" + fillBlankQuestionId + ",\"answer\":\"Spring Boot\"}]}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status", is("submitted")))
+            .andExpect(jsonPath("$.data.totalScore", is(3.0)));
+
+        String teacherDetail = mockMvc.perform(get("/api/teacher/grading/submissions")
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken)))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+        Long submissionId = objectMapper.readTree(teacherDetail).path("data").get(0).path("submissionId").asLong();
+
+        mockMvc.perform(get("/api/teacher/grading/submissions/" + submissionId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.totalScore", is(3.0)))
+            .andExpect(jsonPath("$.data.answers[0].gradingStatus", is("auto_graded")))
+            .andExpect(jsonPath("$.data.answers[0].isCorrect", is(true)));
+    }
+
 
     private Long createQuestion() {
         Long teacherId = jdbcTemplate.queryForObject("SELECT id FROM users WHERE username = 'teacher'", Long.class);
@@ -118,6 +230,38 @@ class ExamFlowTest {
         jdbcTemplate.update("""
             INSERT INTO question_answers (question_id, answer_text, match_rule, created_at, updated_at)
             VALUES (?, 'A', 'exact', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            """, questionId);
+        return questionId;
+    }
+
+    private Long createFillBlankQuestion() {
+        Long teacherId = jdbcTemplate.queryForObject("SELECT id FROM users WHERE username = 'teacher'", Long.class);
+        jdbcTemplate.update("""
+            INSERT INTO questions (question_type, stem, analysis, score, difficulty, knowledge_point, status,
+                                   version, created_at, updated_at, created_by, updated_by, is_deleted)
+            VALUES ('fill_blank', 'Spring 官方推荐的 Java Web 框架是____。', '', ?, 'normal', 'Phase 4', 'active',
+                    1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, 0)
+            """, BigDecimal.valueOf(3), teacherId, teacherId);
+        Long questionId = jdbcTemplate.queryForObject("SELECT MAX(id) FROM questions", Long.class);
+        jdbcTemplate.update("""
+            INSERT INTO question_answers (question_id, answer_text, match_rule, created_at, updated_at)
+            VALUES (?, 'Spring Boot', 'exact', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            """, questionId);
+        return questionId;
+    }
+
+    private Long createSubjectiveQuestion() {
+        Long teacherId = jdbcTemplate.queryForObject("SELECT id FROM users WHERE username = 'teacher'", Long.class);
+        jdbcTemplate.update("""
+            INSERT INTO questions (question_type, stem, analysis, score, difficulty, knowledge_point, status,
+                                   version, created_at, updated_at, created_by, updated_by, is_deleted)
+            VALUES ('subjective', '简述为什么在线考试系统需要权限控制。', '', ?, 'normal', 'Phase 4', 'active',
+                    1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, 0)
+            """, BigDecimal.valueOf(8), teacherId, teacherId);
+        Long questionId = jdbcTemplate.queryForObject("SELECT MAX(id) FROM questions", Long.class);
+        jdbcTemplate.update("""
+            INSERT INTO question_answers (question_id, answer_text, match_rule, created_at, updated_at)
+            VALUES (?, '保护考试数据，防止越权访问。', 'manual', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             """, questionId);
         return questionId;
     }

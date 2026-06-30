@@ -570,6 +570,46 @@ h2 {
   gap: 10px;
 }
 
+.grading-layout {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.grading-list-card,
+.grading-detail-card {
+  min-height: 420px;
+}
+
+.grading-answer-list {
+  display: grid;
+  gap: 16px;
+}
+
+.grading-answer {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.grading-stem {
+  margin: 0;
+  color: #334155;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.manual-grade-row {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr) 120px;
+  gap: 10px;
+  align-items: center;
+}
+
 @media (max-width: 720px) {
   .login-page,
   .workspace-page,
@@ -583,7 +623,9 @@ h2 {
   .workspace-grid,
   .exam-layout,
   .student-exam-grid,
-  .taking-layout {
+  .taking-layout,
+  .grading-layout,
+  .manual-grade-row {
     grid-template-columns: 1fr;
   }
 

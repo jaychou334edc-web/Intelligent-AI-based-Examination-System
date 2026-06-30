@@ -231,14 +231,19 @@ public class JdbcExamRepository implements ExamRepository {
                 """, participant.submittedAt(), participant.examId(), participant.studentId());
         }
 
+        return findSubmitResult(submissionId);
+    }
+
+    @Override
+    public SubmitExamVO findSubmitResult(Long submissionId) {
         return jdbcTemplate.queryForObject("""
             SELECT id, status, total_score, submitted_at FROM submissions WHERE id = ?
             """, (rs, rowNum) -> new SubmitExamVO(
-                rs.getLong("id"),
-                rs.getString("status"),
-                rs.getBigDecimal("total_score"),
-                toLocalDateTime(rs.getTimestamp("submitted_at"))
-            ), submissionId);
+            rs.getLong("id"),
+            rs.getString("status"),
+            rs.getBigDecimal("total_score"),
+            toLocalDateTime(rs.getTimestamp("submitted_at"))
+        ), submissionId);
     }
 
     private Optional<ExamDetailVO> findExamDetail(String sql, Object... args) {

@@ -69,3 +69,5 @@ aes:
     mock-enabled: ${AES_AI_MOCK_ENABLED:true}
     fallback-to-rule-parser: ${AES_AI_FALLBACK_TO_RULE_PARSER:true}
     model: ${AES_AI_MODEL:deepseek-chat}
+  grading:
+    auto-grade-fill-blank: ${AES_GRADING_AUTO_GRADE_FILL_BLANK:false}

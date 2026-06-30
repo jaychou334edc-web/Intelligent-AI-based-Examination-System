@@ -12,6 +12,7 @@ public class AesProperties {
     private AuthProperties auth = new AuthProperties();
     private CorsProperties cors = new CorsProperties();
     private AiProperties ai = new AiProperties();
+    private GradingProperties grading = new GradingProperties();
 
     public String getSchoolName() {
         return schoolName;
@@ -51,6 +52,14 @@ public class AesProperties {
 
     public void setAi(AiProperties ai) {
         this.ai = ai;
+    }
+
+    public GradingProperties getGrading() {
+        return grading;
+    }
+
+    public void setGrading(GradingProperties grading) {
+        this.grading = grading;
     }
 
     public static class CorsProperties {
@@ -232,6 +241,19 @@ public class AesProperties {
 
         public void setModel(String model) {
             this.model = model;
+        }
+    }
+
+    public static class GradingProperties {
+
+        private boolean autoGradeFillBlank = false;
+
+        public boolean isAutoGradeFillBlank() {
+            return autoGradeFillBlank;
+        }
+
+        public void setAutoGradeFillBlank(boolean autoGradeFillBlank) {
+            this.autoGradeFillBlank = autoGradeFillBlank;
         }
     }
 }

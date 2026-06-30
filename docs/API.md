@@ -1,6 +1,6 @@
 # AES API Documentation
 
-Version: Phase 3
+Version: Phase 4
 
 Status: Active
 
@@ -363,3 +363,118 @@ Request:
 ```
 
 The endpoint saves the provided answers and marks the submission as `submitted`.
+
+After submission, the backend immediately runs Phase 4 grading:
+
+- `single_choice`, `multiple_choice`, and `true_false` are automatically graded.
+- `fill_blank` is manual by default, matching the classroom requirement that teachers confirm non-choice answers.
+- `fill_blank` can be automatically graded only when `aes.grading.auto-grade-fill-blank=true`.
+- `subjective` answers always wait for teacher grading.
+
+# 7. Grading And Results
+
+Phase 4 APIs use role-separated paths.
+
+Teacher grading APIs require `teacher` role:
+
+- `GET /api/teacher/grading/submissions`
+- `GET /api/teacher/grading/submissions/{submissionId}`
+- `POST /api/teacher/grading/submissions/{submissionId}/answers`
+
+Student result APIs require `student` role:
+
+- `GET /api/student/results`
+- `GET /api/student/results/{submissionId}`
+
+## 7.1 Teacher Submission List
+
+`GET /api/teacher/grading/submissions`
+
+Returns submitted answer sheets for exams created by the current teacher.
+
+Response item:
+
+```json
+{
+  "submissionId": 1,
+  "examId": 1,
+  "examTitle": "Java Web 单元测试",
+  "studentId": 3,
+  "studentName": "测试学生",
+  "submissionStatus": "submitted",
+  "totalScore": 12,
+  "maxScore": 20,
+  "submittedAt": "2026-07-01T10:00:00",
+  "gradedAt": null
+}
+```
+
+## 7.2 Teacher Submission Detail
+
+`GET /api/teacher/grading/submissions/{submissionId}`
+
+Returns all answers, automatic grading results, pending manual items, and teacher comments.
+
+Answer item:
+
+```json
+{
+  "questionId": 1,
+  "sourcePaperId": 1,
+  "questionType": "single_choice",
+  "stem": "下列哪个选项是 Java 后端框架？",
+  "options": [
+    {"key": "A", "text": "Spring Boot"}
+  ],
+  "maxScore": 5,
+  "correctAnswer": "A",
+  "studentAnswer": "A",
+  "isCorrect": true,
+  "autoScore": 5,
+  "manualScore": null,
+  "finalScore": 5,
+  "gradingStatus": "auto_graded",
+  "teacherComment": null
+}
+```
+
+`gradingStatus` values currently used:
+
+- `auto_graded`
+- `pending`
+- `manual_graded`
+
+## 7.3 Manual Grade Answer
+
+`POST /api/teacher/grading/submissions/{submissionId}/answers`
+
+Request:
+
+```json
+{
+  "questionId": 2,
+  "score": 8,
+  "teacherComment": "要点基本完整"
+}
+```
+
+Rules:
+
+- The score cannot be less than `0`.
+- The score cannot exceed the exam question score.
+- Teacher grading is the final authority for pending fill blank and subjective answers.
+- AI suggested scores may be added later, but they are never final without teacher confirmation.
+
+Response data is the refreshed submission detail.
+
+## 7.4 Student Result List
+
+`GET /api/student/results`
+
+Returns the current student's submitted exams and score summaries.
+
+## 7.5 Student Result Detail
+
+`GET /api/student/results/{submissionId}`
+
+Returns the student's answer detail, per-question score, grading status, and teacher comment.
