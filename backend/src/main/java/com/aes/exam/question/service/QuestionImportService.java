@@ -11,6 +11,7 @@ import com.aes.exam.question.dto.ImportQuestionsRequest;
 import com.aes.exam.question.dto.ReviewQuestionRequest;
 import com.aes.exam.question.repository.QuestionRepository;
 import com.aes.exam.question.vo.ImportQuestionsResultVO;
+import com.aes.exam.question.vo.QuestionBankItemVO;
 import com.aes.exam.question.vo.QuestionOptionVO;
 import com.aes.exam.question.vo.ReviewQuestionVO;
 import java.util.List;
@@ -73,6 +74,10 @@ public class QuestionImportService {
         }
 
         return new ImportQuestionsResultVO(request.paperId(), importedCount);
+    }
+
+    public List<QuestionBankItemVO> findRecentQuestions(int limit) {
+        return questionRepository.findRecent(limit);
     }
 
     private ReviewQuestionVO toReviewVO(ReviewQuestionRequest request) {

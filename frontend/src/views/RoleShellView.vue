@@ -47,6 +47,9 @@ function actionTarget(action: string) {
   if (props.role === 'teacher' && action === 'AI 题库导入') {
     return '/teacher/papers'
   }
+  if (props.role === 'teacher' && action === '题库维护') {
+    return '/teacher/questions'
+  }
   return ''
 }
 

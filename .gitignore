@@ -21,6 +21,9 @@ node_modules/
 logs/
 *.log
 
+# Runtime uploads
+backend/data/
+
 # Local test documents
 *.docx
 

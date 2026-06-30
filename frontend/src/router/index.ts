@@ -2,6 +2,7 @@ import { createRouter, createWebHistory, type RouteLocationNormalized } from 'vu
 import LoginView from '../views/LoginView.vue'
 import RoleShellView from '../views/RoleShellView.vue'
 import TeacherPaperParsingView from '../views/TeacherPaperParsingView.vue'
+import TeacherQuestionBankView from '../views/TeacherQuestionBankView.vue'
 import { useAuthStore } from '../stores/auth'
 import type { UserRole } from '../api/auth'
 
@@ -46,6 +47,12 @@ const router = createRouter({
       path: '/teacher/papers',
       name: 'teacher-papers',
       component: TeacherPaperParsingView,
+      meta: { requiresAuth: true, role: 'teacher' },
+    },
+    {
+      path: '/teacher/questions',
+      name: 'teacher-questions',
+      component: TeacherQuestionBankView,
       meta: { requiresAuth: true, role: 'teacher' },
     },
     {

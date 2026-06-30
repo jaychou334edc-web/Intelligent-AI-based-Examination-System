@@ -1,4 +1,4 @@
-import { apiRequest } from './client'
+import { apiRequest, getStoredToken } from './client'
 
 export interface Paper {
   id: number
@@ -20,4 +20,15 @@ export function uploadPaper(file: File, title: string) {
     method: 'POST',
     body: formData,
   })
+}
+
+export async function loadPaperImageUrl(paperId: number, imageId: string) {
+  const token = getStoredToken()
+  const response = await fetch(`/api/papers/${paperId}/images/${imageId}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!response.ok) {
+    throw new Error(`图片加载失败：${response.status}`)
+  }
+  return URL.createObjectURL(await response.blob())
 }

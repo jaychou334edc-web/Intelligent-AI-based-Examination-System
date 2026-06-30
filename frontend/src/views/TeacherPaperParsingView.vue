@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, type UploadInstance, type UploadProps } from 'element-plus'
+import { ElMessage, type UploadFile, type UploadInstance, type UploadProps } from 'element-plus'
 import { importQuestions, parsePaper, type ReviewQuestion } from '../api/paperParsing'
-import { uploadPaper, type Paper } from '../api/papers'
+import { loadPaperImageUrl, uploadPaper, type Paper } from '../api/papers'
 
 const router = useRouter()
 const uploadRef = ref<UploadInstance>()
@@ -13,6 +13,7 @@ const questions = ref<ReviewQuestion[]>([])
 const rawText = ref('')
 const loading = ref(false)
 const importLoading = ref(false)
+const imageUrls = ref<Record<string, string>>({})
 
 const form = reactive({
   title: '本地测试试卷',
@@ -29,14 +30,42 @@ const questionTypes = [
 const canParse = computed(() => Boolean(selectedFile.value || currentPaper.value))
 const canImport = computed(() => currentPaper.value && questions.value.length > 0)
 
+function isSupportedFile(fileName: string) {
+  const lowerName = fileName.toLowerCase()
+  return lowerName.endsWith('.docx') || lowerName.endsWith('.txt')
+}
+
 const beforeUpload: UploadProps['beforeUpload'] = (file) => {
-  const lowerName = file.name.toLowerCase()
-  if (!lowerName.endsWith('.docx') && !lowerName.endsWith('.txt')) {
+  if (!isSupportedFile(file.name)) {
     ElMessage.error('请上传 .docx 或 .txt 文件')
     return false
   }
-  selectedFile.value = file
   return false
+}
+
+function handleFileChange(file: UploadFile) {
+  if (!file.raw) {
+    return
+  }
+  if (!isSupportedFile(file.name)) {
+    ElMessage.error('请上传 .docx 或 .txt 文件')
+    uploadRef.value?.clearFiles()
+    selectedFile.value = null
+    return
+  }
+  selectedFile.value = file.raw
+  currentPaper.value = null
+  questions.value = []
+  rawText.value = ''
+  clearImageUrls()
+}
+
+function handleFileRemove() {
+  selectedFile.value = null
+  currentPaper.value = null
+  questions.value = []
+  rawText.value = ''
+  clearImageUrls()
 }
 
 function removeQuestion(index: number) {
@@ -52,6 +81,61 @@ function removeOption(question: ReviewQuestion, optionIndex: number) {
   question.options.splice(optionIndex, 1)
 }
 
+function clearImageUrls() {
+  Object.values(imageUrls.value).forEach((url) => URL.revokeObjectURL(url))
+  imageUrls.value = {}
+}
+
+async function ensureImageUrl(imageId: string) {
+  if (!currentPaper.value || imageUrls.value[imageId]) {
+    return
+  }
+  try {
+    imageUrls.value = {
+      ...imageUrls.value,
+      [imageId]: await loadPaperImageUrl(currentPaper.value.id, imageId),
+    }
+  } catch {
+    imageUrls.value = {
+      ...imageUrls.value,
+      [imageId]: '',
+    }
+  }
+}
+
+function imageUrl(imageId: string) {
+  void ensureImageUrl(imageId)
+  return imageUrls.value[imageId] ?? ''
+}
+
+function stemParts(text: string) {
+  const parts: Array<{ type: 'text' | 'image'; value: string }> = []
+  const pattern = /\[IMG:([^\]]+)]/g
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', value: text.slice(lastIndex, match.index) })
+    }
+    parts.push({ type: 'image', value: match[1] })
+    lastIndex = pattern.lastIndex
+  }
+  if (lastIndex < text.length) {
+    parts.push({ type: 'text', value: text.slice(lastIndex) })
+  }
+  return parts
+}
+
+function answerControlLabel(questionType: string) {
+  if (questionType === 'single_choice' || questionType === 'multiple_choice') {
+    return '学生端将显示选项按钮'
+  }
+  if (questionType === 'true_false') {
+    return '学生端将显示对/错按钮'
+  }
+  return '学生端将显示文本作答框'
+}
+
 async function uploadAndParse() {
   if (!selectedFile.value && !currentPaper.value) {
     ElMessage.warning('请先选择题库源文件')
@@ -64,6 +148,7 @@ async function uploadAndParse() {
       currentPaper.value = await uploadPaper(selectedFile.value, form.title)
     }
     const result = await parsePaper(currentPaper.value!.id)
+    clearImageUrls()
     questions.value = result.questions
     rawText.value = result.rawText
     ElMessage.success(`解析完成，共识别 ${result.questions.length} 道题`)
@@ -71,6 +156,8 @@ async function uploadAndParse() {
     loading.value = false
   }
 }
+
+onBeforeUnmount(clearImageUrls)
 
 async function submitImport() {
   if (!currentPaper.value) {
@@ -106,7 +193,16 @@ async function submitImport() {
           <el-form-item label="试卷标题">
             <el-input v-model="form.title" />
           </el-form-item>
-          <el-upload ref="uploadRef" drag :auto-upload="false" :limit="1" accept=".docx,.txt" :before-upload="beforeUpload">
+          <el-upload
+            ref="uploadRef"
+            drag
+            :auto-upload="false"
+            :limit="1"
+            accept=".docx,.txt"
+            :before-upload="beforeUpload"
+            :on-change="handleFileChange"
+            :on-remove="handleFileRemove"
+          >
             <div class="upload-copy">
               <strong>选择题库源文件</strong>
               <span>支持 .docx / .txt</span>
@@ -120,8 +216,9 @@ async function submitImport() {
 
       <article class="status-card raw-card">
         <p class="eyebrow">Extraction</p>
-        <h2>提取文本</h2>
-        <el-input v-model="rawText" type="textarea" :rows="11" readonly placeholder="解析后显示文档提取结果" />
+        <h2>结构预览</h2>
+        <p class="raw-hint">这里显示文档提取出的文字和图片占位。最终导入以逐题审核卡片为准。</p>
+        <el-input v-model="rawText" type="textarea" :rows="9" readonly placeholder="解析后显示文档结构预览" />
       </article>
     </section>
 
@@ -152,6 +249,16 @@ async function submitImport() {
             <el-input-number v-model="question.score" :min="0.5" :step="0.5" />
             <el-input v-model="question.knowledgePoint" placeholder="知识点" />
             <el-input v-model="question.difficulty" placeholder="难度" />
+          </div>
+
+          <div class="answer-control-hint">{{ answerControlLabel(question.questionType) }}</div>
+
+          <div class="stem-preview">
+            <template v-for="(part, partIndex) in stemParts(question.stem)" :key="partIndex">
+              <p v-if="part.type === 'text'">{{ part.value }}</p>
+              <img v-else-if="imageUrl(part.value)" :src="imageUrl(part.value)" :alt="part.value" />
+              <span v-else class="image-loading">图片加载中：{{ part.value }}</span>
+            </template>
           </div>
 
           <el-input v-model="question.stem" type="textarea" :rows="3" placeholder="题干" />

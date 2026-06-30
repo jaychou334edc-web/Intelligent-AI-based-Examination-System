@@ -21,6 +21,7 @@ import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
 import org.apache.poi.xwpf.usermodel.XWPFTableRow;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 @Service
 public class DocxExtractionService {
@@ -40,7 +41,7 @@ public class DocxExtractionService {
 
         try (InputStream inputStream = Files.newInputStream(filePath);
              XWPFDocument document = new XWPFDocument(inputStream)) {
-            ImageRegistry imageRegistry = new ImageRegistry(document.getAllPictures());
+            ImageRegistry imageRegistry = new ImageRegistry(document.getAllPictures(), imageDirectory(filePath));
             StringBuilder text = new StringBuilder();
             for (IBodyElement element : document.getBodyElements()) {
                 if (element.getElementType() == BodyElementType.PARAGRAPH) {
@@ -53,6 +54,13 @@ public class DocxExtractionService {
         } catch (IOException exception) {
             throw new IllegalStateException("Word 文档提取失败", exception);
         }
+    }
+
+    private Path imageDirectory(Path filePath) {
+        String fileName = filePath.getFileName().toString();
+        int dotIndex = fileName.lastIndexOf('.');
+        String baseName = dotIndex > 0 ? fileName.substring(0, dotIndex) : fileName;
+        return filePath.getParent().resolve(baseName + "-images");
     }
 
     private ExtractedDocument extractTxt(Path filePath) {
@@ -104,15 +112,21 @@ public class DocxExtractionService {
         private final Map<String, String> relationIds = new HashMap<>();
         private final List<ImageReference> images = new ArrayList<>();
 
-        private ImageRegistry(List<XWPFPictureData> pictures) {
+        private ImageRegistry(List<XWPFPictureData> pictures, Path imageDirectory) throws IOException {
+            Files.createDirectories(imageDirectory);
             for (XWPFPictureData picture : pictures) {
                 String id = "image_" + (images.size() + 1);
+                String extension = extension(picture);
+                String storedName = id + extension;
+                Path target = imageDirectory.resolve(storedName);
+                Files.write(target, picture.getData());
                 relationIds.put(packageName(picture), id);
                 images.add(new ImageReference(
                     id,
                     picture.getFileName(),
                     picture.getPackagePart().getContentType(),
-                    picture.getData().length
+                    picture.getData().length,
+                    target.toString()
                 ));
             }
         }
@@ -129,11 +143,24 @@ public class DocxExtractionService {
         private List<ImageReference> images() {
             return List.copyOf(images);
         }
+
+        private String extension(XWPFPictureData picture) {
+            String originalExtension = StringUtils.getFilenameExtension(picture.getFileName());
+            if (StringUtils.hasText(originalExtension)) {
+                return "." + originalExtension.toLowerCase();
+            }
+            return switch (picture.getPackagePart().getContentType()) {
+                case "image/png" -> ".png";
+                case "image/jpeg" -> ".jpg";
+                case "image/gif" -> ".gif";
+                default -> ".bin";
+            };
+        }
     }
 
     public record ExtractedDocument(String text, List<ImageReference> images) {
     }
 
-    public record ImageReference(String id, String fileName, String contentType, int size) {
+    public record ImageReference(String id, String fileName, String contentType, int size, String filePath) {
     }
 }

@@ -12,6 +12,7 @@ import com.aes.exam.paper.entity.PaperEntity;
 import com.aes.exam.paper.repository.PaperRepository;
 import com.aes.exam.paper.service.DocxExtractionService;
 import com.aes.exam.paper.service.DocxExtractionService.ExtractedDocument;
+import com.aes.exam.paper.service.PaperImageService;
 import com.aes.exam.paper.service.PaperService;
 import com.aes.exam.question.vo.ReviewQuestionVO;
 import java.math.BigDecimal;
@@ -29,6 +30,7 @@ public class AiParsingService {
     private final PaperService paperService;
     private final PaperRepository paperRepository;
     private final DocxExtractionService docxExtractionService;
+    private final PaperImageService paperImageService;
     private final AiPromptBuilder promptBuilder;
     private final DeepSeekClient deepSeekClient;
     private final QuestionChunker questionChunker;
@@ -44,6 +46,7 @@ public class AiParsingService {
         PaperService paperService,
         PaperRepository paperRepository,
         DocxExtractionService docxExtractionService,
+        PaperImageService paperImageService,
         AiPromptBuilder promptBuilder,
         DeepSeekClient deepSeekClient,
         QuestionChunker questionChunker,
@@ -58,6 +61,7 @@ public class AiParsingService {
         this.paperService = paperService;
         this.paperRepository = paperRepository;
         this.docxExtractionService = docxExtractionService;
+        this.paperImageService = paperImageService;
         this.promptBuilder = promptBuilder;
         this.deepSeekClient = deepSeekClient;
         this.questionChunker = questionChunker;
@@ -78,10 +82,12 @@ public class AiParsingService {
         try {
             ExtractedDocument document = docxExtractionService.extract(Path.of(paper.filePath()));
             String rawText = document.text();
+            String imageManifestJson = paperImageService.toManifestJson(document.images());
             List<String> chunks = questionChunker.chunk(rawText);
             ParseOutcome outcome = parseWithConfiguredProvider(paper.title(), document, chunks);
             String requestPayload = outcome.requestPayload();
             StructuredParseResponse response = outcome.response();
+            addImageReviewQuestionsIfNeeded(response, document);
             if (response.getQuestions().isEmpty()) {
                 throw new BusinessException(ErrorCode.VALIDATION_FAILED, "未能从 Word 中识别出题目");
             }
@@ -99,7 +105,7 @@ public class AiParsingService {
             }
 
             String responsePayload = questionJsonMapper.toJson(response);
-            paperRepository.updateRawTextAndStatus(paperId, rawText, "parsed", aiModel);
+            paperRepository.updateRawTextImagesAndStatus(paperId, rawText, imageManifestJson, "parsed", aiModel);
             jobRepository.complete(jobId, "succeeded", requestPayload, responsePayload, outcome.errorMessage(), LocalDateTime.now());
             aiLogRepository.create(
                 paperId,
@@ -114,6 +120,31 @@ public class AiParsingService {
             paperRepository.updateRawTextAndStatus(paperId, paper.rawText(), "failed", aiModel);
             jobRepository.complete(jobId, "failed", null, null, exception.getMessage(), LocalDateTime.now());
             throw exception;
+        }
+    }
+
+    private void addImageReviewQuestionsIfNeeded(StructuredParseResponse response, ExtractedDocument document) {
+        if (document.images().isEmpty()) {
+            return;
+        }
+        List<String> existingStems = response.getQuestions().stream()
+            .map(question -> question.getStem() == null ? "" : question.getStem())
+            .toList();
+        for (DocxExtractionService.ImageReference image : document.images()) {
+            String placeholder = "[IMG:" + image.id() + "]";
+            boolean alreadyReferenced = existingStems.stream().anyMatch(stem -> stem.contains(placeholder));
+            if (!alreadyReferenced) {
+                ParsedQuestionModel question = new ParsedQuestionModel();
+                question.setQuestionType("subjective");
+                question.setStem("图片题，需教师确认题型、题干、选项和答案。\n" + placeholder);
+                question.setOptions(List.of());
+                question.setAnswer("");
+                question.setAnalysis("");
+                question.setScore(BigDecimal.TEN);
+                question.setKnowledgePoint("");
+                question.setDifficulty("normal");
+                response.getQuestions().add(question);
+            }
         }
     }
 

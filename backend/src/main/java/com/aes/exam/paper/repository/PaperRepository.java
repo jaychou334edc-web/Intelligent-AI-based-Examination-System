@@ -11,4 +11,6 @@ public interface PaperRepository {
     Optional<PaperEntity> findById(Long id);
 
     void updateRawTextAndStatus(Long id, String rawText, String parseStatus, String aiModel);
+
+    void updateRawTextImagesAndStatus(Long id, String rawText, String imageManifestJson, String parseStatus, String aiModel);
 }

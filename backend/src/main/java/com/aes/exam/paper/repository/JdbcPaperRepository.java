@@ -48,7 +48,7 @@ public class JdbcPaperRepository implements PaperRepository {
     public Optional<PaperEntity> findById(Long id) {
         return jdbcTemplate.query("""
                 SELECT id, title, file_path, file_name, file_hash, file_size, upload_user_id, upload_time,
-                       parse_status, ai_model, raw_text
+                       parse_status, ai_model, raw_text, image_manifest_json
                 FROM papers
                 WHERE id = ? AND is_deleted = 0
                 """,
@@ -66,6 +66,15 @@ public class JdbcPaperRepository implements PaperRepository {
             """, rawText, parseStatus, aiModel, id);
     }
 
+    @Override
+    public void updateRawTextImagesAndStatus(Long id, String rawText, String imageManifestJson, String parseStatus, String aiModel) {
+        jdbcTemplate.update("""
+            UPDATE papers
+            SET raw_text = ?, image_manifest_json = ?, parse_status = ?, ai_model = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """, rawText, imageManifestJson, parseStatus, aiModel, id);
+    }
+
     private PaperEntity mapPaper(ResultSet rs, int rowNum) throws SQLException {
         return new PaperEntity(
             rs.getLong("id"),
@@ -78,7 +87,8 @@ public class JdbcPaperRepository implements PaperRepository {
             rs.getTimestamp("upload_time").toLocalDateTime(),
             rs.getString("parse_status"),
             rs.getString("ai_model"),
-            rs.getString("raw_text")
+            rs.getString("raw_text"),
+            rs.getString("image_manifest_json")
         );
     }
 }

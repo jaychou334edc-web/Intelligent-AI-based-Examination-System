@@ -13,6 +13,7 @@ public record PaperEntity(
     LocalDateTime uploadTime,
     String parseStatus,
     String aiModel,
-    String rawText
+    String rawText,
+    String imageManifestJson
 ) {
 }
