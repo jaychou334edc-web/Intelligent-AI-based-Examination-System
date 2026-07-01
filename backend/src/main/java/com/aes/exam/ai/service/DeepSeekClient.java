@@ -20,6 +20,10 @@ public class DeepSeekClient {
     }
 
     public String parsePaper(String systemPrompt, String prompt) {
+        return chatJson(systemPrompt, prompt, 0.1, Duration.ofSeconds(120));
+    }
+
+    public String chatJson(String systemPrompt, String prompt, double temperature, Duration timeout) {
         if (!StringUtils.hasText(properties.getAi().getDeepseekApiKey())) {
             throw new IllegalStateException("DeepSeek API Key 未配置");
         }
@@ -31,7 +35,7 @@ public class DeepSeekClient {
                 new ChatMessage("user", prompt)
             ),
             new ResponseFormat("json_object"),
-            0.1
+            temperature
         );
 
         ChatResponse response = webClient.post()
@@ -41,7 +45,7 @@ public class DeepSeekClient {
             .bodyValue(request)
             .retrieve()
             .bodyToMono(ChatResponse.class)
-            .block(Duration.ofSeconds(120));
+            .block(timeout);
 
         if (response == null || response.choices() == null || response.choices().isEmpty()) {
             throw new IllegalStateException("DeepSeek 未返回解析结果");

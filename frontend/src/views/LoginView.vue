@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { Lock, User } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
 import type { LoginRequest, UserRole } from '../api/auth'
 
@@ -78,7 +79,7 @@ async function submitLogin() {
 
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent="submitLogin">
         <el-form-item label="用户名" prop="username">
-          <el-input v-model.trim="form.username" autocomplete="username" size="large" />
+          <el-input v-model.trim="form.username" autocomplete="username" size="large" :prefix-icon="User" />
         </el-form-item>
 
         <el-form-item label="密码" prop="password">
@@ -88,6 +89,7 @@ async function submitLogin() {
             size="large"
             show-password
             type="password"
+            :prefix-icon="Lock"
           />
         </el-form-item>
 

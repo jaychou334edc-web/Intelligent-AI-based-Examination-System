@@ -1,6 +1,7 @@
 package com.aes.exam.question.repository;
 
 import com.aes.exam.question.dto.QuestionOptionRequest;
+import com.aes.exam.question.dto.ReviewQuestionRequest;
 import com.aes.exam.question.vo.QuestionBankItemVO;
 import com.aes.exam.question.vo.QuestionOptionVO;
 import java.sql.ResultSet;
@@ -9,6 +10,7 @@ import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -114,6 +116,101 @@ public class JdbcQuestionRepository implements QuestionRepository {
                 question.createdAt()
             ))
             .toList();
+    }
+
+    @Override
+    public Optional<QuestionBankItemVO> findById(Long questionId) {
+        List<QuestionBankItemVO> questions = jdbcTemplate.query("""
+                SELECT q.id, q.source_paper_id, q.question_type, q.stem, q.analysis, q.score, q.difficulty,
+                       q.knowledge_point, qa.answer_text, q.created_at
+                FROM questions q
+                LEFT JOIN question_answers qa ON qa.question_id = q.id
+                WHERE q.id = ? AND q.is_deleted = 0
+                """,
+            this::mapQuestion,
+            questionId
+        );
+        return questions.stream()
+            .findFirst()
+            .map(question -> new QuestionBankItemVO(
+                question.id(),
+                question.sourcePaperId(),
+                question.questionType(),
+                question.stem(),
+                question.analysis(),
+                question.score(),
+                question.difficulty(),
+                question.knowledgePoint(),
+                question.answer(),
+                findOptions(question.id()),
+                question.createdAt()
+            ));
+    }
+
+    @Override
+    public boolean existsActive(Long questionId) {
+        Integer count = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM questions WHERE id = ? AND is_deleted = 0",
+            Integer.class,
+            questionId
+        );
+        return count != null && count > 0;
+    }
+
+    @Override
+    public boolean isUsedInExam(Long questionId) {
+        Integer count = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM exam_questions WHERE question_id = ?",
+            Integer.class,
+            questionId
+        );
+        return count != null && count > 0;
+    }
+
+    @Override
+    public void updateQuestion(Long questionId, ReviewQuestionRequest request, Long currentUserId) {
+        jdbcTemplate.update("""
+            UPDATE questions
+            SET question_type = ?,
+                stem = ?,
+                analysis = ?,
+                score = ?,
+                difficulty = ?,
+                knowledge_point = ?,
+                version = version + 1,
+                updated_at = CURRENT_TIMESTAMP,
+                updated_by = ?
+            WHERE id = ? AND is_deleted = 0
+            """,
+            request.questionType(),
+            request.stem(),
+            request.analysis(),
+            request.score(),
+            request.difficulty(),
+            request.knowledgePoint(),
+            currentUserId,
+            questionId
+        );
+
+        jdbcTemplate.update("DELETE FROM question_options WHERE question_id = ?", questionId);
+        jdbcTemplate.update("DELETE FROM question_answers WHERE question_id = ?", questionId);
+        createOptions(questionId, request.options(), request.answer());
+        createAnswer(questionId, request.answer());
+    }
+
+    @Override
+    public void softDelete(Long questionId, Long currentUserId) {
+        jdbcTemplate.update("""
+            UPDATE questions
+            SET is_deleted = 1,
+                status = 'deleted',
+                updated_at = CURRENT_TIMESTAMP,
+                updated_by = ?
+            WHERE id = ? AND is_deleted = 0
+            """,
+            currentUserId,
+            questionId
+        );
     }
 
     private QuestionBankItemVO mapQuestion(ResultSet rs, int rowNum) throws SQLException {

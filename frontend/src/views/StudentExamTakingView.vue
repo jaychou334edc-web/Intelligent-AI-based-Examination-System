@@ -49,6 +49,33 @@ const progressText = computed(() => {
   }
   return `${currentIndex.value + 1} / ${exam.value.questions.length}`
 })
+const answeredCount = computed(() => {
+  if (!exam.value) {
+    return 0
+  }
+  return exam.value.questions.filter((question) => Boolean((answers.value[question.id] || '').trim())).length
+})
+const unansweredIndexes = computed(() => {
+  if (!exam.value) {
+    return []
+  }
+  return exam.value.questions
+    .map((question, index) => ({ question, index }))
+    .filter((item) => !(answers.value[item.question.id] || '').trim())
+    .map((item) => item.index + 1)
+})
+const progressPercent = computed(() => {
+  if (!exam.value || exam.value.questions.length === 0) {
+    return 0
+  }
+  return Math.round((answeredCount.value / exam.value.questions.length) * 100)
+})
+const examWindowText = computed(() => {
+  if (!exam.value?.startTime && !exam.value?.endTime) {
+    return '不限考试窗口'
+  }
+  return `${formatDateTime(exam.value.startTime)} - ${formatDateTime(exam.value.endTime)}`
+})
 
 const questionTypeLabels: Record<string, string> = {
   single_choice: '单选题',
@@ -275,6 +302,10 @@ function imageUrl(question: ExamQuestion, imageId: string) {
   return imageUrls.value[`${paperId}:${imageId}`] ?? ''
 }
 
+function formatDateTime(value?: string) {
+  return value ? value.replace('T', ' ').slice(0, 16) : '未设置'
+}
+
 function setChoiceAnswer(question: ExamQuestion, key: string) {
   if (question.questionType === 'multiple_choice') {
     const current = new Set((answers.value[question.id] || '').split(',').filter(Boolean))
@@ -340,7 +371,11 @@ async function submitExam(auto = false) {
   }
   try {
     if (!auto) {
-      await ElMessageBox.confirm('提交后不能继续修改答案。确认提交吗？', '提交考试', {
+      const unanswered = unansweredIndexes.value
+      const message = unanswered.length > 0
+        ? `还有 ${unanswered.length} 道题未作答：第 ${unanswered.slice(0, 10).join('、')} 题。提交后不能继续修改答案，确认提交吗？`
+        : '所有题目均已作答。提交后不能继续修改答案，确认提交吗？'
+      await ElMessageBox.confirm(message, '提交考试', {
         confirmButtonText: '提交',
         cancelButtonText: '取消',
         type: 'warning',
@@ -415,10 +450,23 @@ onBeforeUnmount(() => {
       <aside class="status-card question-nav">
         <p class="eyebrow">Progress</p>
         <h2>{{ progressText }}</h2>
+        <el-progress :percentage="progressPercent" />
+        <div class="countdown-box">
+          <span>已答 / 总题数</span>
+          <strong>{{ answeredCount }} / {{ exam.questions.length }}</strong>
+        </div>
         <div class="countdown-box">
           <span>剩余时间</span>
           <strong>{{ countdownText }}</strong>
         </div>
+        <p class="raw-hint">{{ examWindowText }}</p>
+        <el-alert
+          v-if="unansweredIndexes.length > 0"
+          :title="`未答 ${unansweredIndexes.length} 题`"
+          type="warning"
+          :closable="false"
+          show-icon
+        />
         <div class="question-jump-list">
           <button
             v-for="(question, index) in exam.questions"

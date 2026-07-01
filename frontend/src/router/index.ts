@@ -10,6 +10,8 @@ import StudentExamTakingView from '../views/StudentExamTakingView.vue'
 import TeacherGradingView from '../views/TeacherGradingView.vue'
 import StudentResultsView from '../views/StudentResultsView.vue'
 import TeacherMonitoringView from '../views/TeacherMonitoringView.vue'
+import TeacherAnalyticsView from '../views/TeacherAnalyticsView.vue'
+import NotFoundView from '../views/NotFoundView.vue'
 import { useAuthStore } from '../stores/auth'
 import type { UserRole } from '../api/auth'
 
@@ -87,6 +89,12 @@ const router = createRouter({
       meta: { requiresAuth: true, role: 'teacher' },
     },
     {
+      path: '/teacher/analytics',
+      name: 'teacher-analytics',
+      component: TeacherAnalyticsView,
+      meta: { requiresAuth: true, role: 'teacher' },
+    },
+    {
       path: '/student',
       name: 'student',
       component: RoleShellView,
@@ -111,6 +119,11 @@ const router = createRouter({
       name: 'student-results',
       component: StudentResultsView,
       meta: { requiresAuth: true, role: 'student' },
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: NotFoundView,
     },
   ],
 })

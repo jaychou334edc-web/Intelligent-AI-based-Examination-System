@@ -1,5 +1,5 @@
 import { apiRequest } from './client'
-import type { QuestionOption } from './paperParsing'
+import type { QuestionOption, ReviewQuestion } from './paperParsing'
 
 export interface QuestionBankItem {
   id: number
@@ -17,4 +17,17 @@ export interface QuestionBankItem {
 
 export function getRecentQuestions(limit = 100) {
   return apiRequest<QuestionBankItem[]>(`/api/questions?limit=${limit}`)
+}
+
+export function updateQuestion(questionId: number, payload: ReviewQuestion) {
+  return apiRequest<QuestionBankItem>(`/api/questions/${questionId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteQuestion(questionId: number) {
+  return apiRequest<void>(`/api/questions/${questionId}`, {
+    method: 'DELETE',
+  })
 }

@@ -13,6 +13,15 @@ import {
   type LoginSessionAudit,
   type SystemConfig,
 } from '../api/admin'
+import {
+  createCourse,
+  createTeachingClass,
+  getAcademicOverview,
+  getClassStudents,
+  updateClassStudents,
+  type AcademicOverview,
+  type TeachingClass,
+} from '../api/academic'
 import type { UserRole } from '../api/auth'
 
 const router = useRouter()
@@ -21,7 +30,9 @@ const activeTab = ref('users')
 const users = ref<AdminUser[]>([])
 const sessions = ref<LoginSessionAudit[]>([])
 const config = ref<SystemConfig | null>(null)
+const academic = ref<AcademicOverview | null>(null)
 const selectedUser = ref<AdminUser | null>(null)
+const selectedClass = ref<TeachingClass | null>(null)
 const loading = ref(false)
 const saving = ref(false)
 
@@ -39,6 +50,25 @@ const editForm = reactive({
   password: '',
 })
 
+const courseForm = reactive({
+  name: 'Java 程序设计',
+  code: 'JAVA-2026',
+  description: '面向软件专业的 Java 程序设计课程。',
+  teacherId: undefined as number | undefined,
+})
+
+const classForm = reactive({
+  courseId: undefined as number | undefined,
+  name: '2023 软件 1 班',
+  grade: '2023',
+  major: '软件工程',
+  studentIds: [] as number[],
+})
+
+const classStudentForm = reactive({
+  studentIds: [] as number[],
+})
+
 const roleLabels: Record<string, string> = {
   admin: '管理员',
   teacher: '教师',
@@ -53,21 +83,89 @@ const statusLabels: Record<string, string> = {
 async function loadAll() {
   loading.value = true
   try {
-    const [nextUsers, nextSessions, nextConfig] = await Promise.all([
+    const [nextUsers, nextSessions, nextConfig, nextAcademic] = await Promise.all([
       getAdminUsers(),
       getAdminSessions(),
       getSystemConfig(),
+      getAcademicOverview(),
     ])
     users.value = nextUsers
     sessions.value = nextSessions
     config.value = nextConfig
+    academic.value = nextAcademic
     if (!selectedUser.value && nextUsers.length > 0) {
       selectUser(nextUsers[0])
+    }
+    if (!selectedClass.value && nextAcademic.classes.length > 0) {
+      void selectClass(nextAcademic.classes[0])
     }
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '管理员数据加载失败')
   } finally {
     loading.value = false
+  }
+}
+
+async function selectClass(item: TeachingClass) {
+  selectedClass.value = item
+  try {
+    const students = await getClassStudents(item.id)
+    classStudentForm.studentIds = students.map((student) => student.id)
+  } catch {
+    classStudentForm.studentIds = []
+  }
+}
+
+async function createCourseAction() {
+  saving.value = true
+  try {
+    await createCourse({ ...courseForm })
+    ElMessage.success('课程已创建')
+    await loadAll()
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '创建课程失败')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function createClassAction() {
+  if (!classForm.courseId) {
+    ElMessage.warning('请选择所属课程')
+    return
+  }
+  saving.value = true
+  try {
+    await createTeachingClass({
+      courseId: classForm.courseId,
+      name: classForm.name,
+      grade: classForm.grade,
+      major: classForm.major,
+      studentIds: classForm.studentIds,
+    })
+    ElMessage.success('班级已创建')
+    classForm.studentIds = []
+    await loadAll()
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '创建班级失败')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function saveClassStudents() {
+  if (!selectedClass.value) {
+    return
+  }
+  saving.value = true
+  try {
+    await updateClassStudents(selectedClass.value.id, classStudentForm.studentIds)
+    ElMessage.success('班级学生已更新')
+    await loadAll()
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '保存班级学生失败')
+  } finally {
+    saving.value = false
   }
 }
 
@@ -147,6 +245,8 @@ onMounted(() => {
     activeTab.value = 'audit'
   } else if (tab === '系统配置') {
     activeTab.value = 'config'
+  } else if (tab === '课程班级') {
+    activeTab.value = 'academic'
   }
   void loadAll()
 })
@@ -280,6 +380,109 @@ onMounted(() => {
             <div><dt>登录有效期</dt><dd>{{ config.tokenTtlHours }} 小时</dd></div>
           </dl>
         </article>
+      </el-tab-pane>
+
+      <el-tab-pane label="课程班级" name="academic">
+        <section class="admin-layout">
+          <article class="status-card">
+            <p class="eyebrow">Course</p>
+            <h2>新建课程</h2>
+            <el-form label-position="top">
+              <el-form-item label="课程名称">
+                <el-input v-model.trim="courseForm.name" />
+              </el-form-item>
+              <el-form-item label="课程代码">
+                <el-input v-model.trim="courseForm.code" />
+              </el-form-item>
+              <el-form-item label="任课教师">
+                <el-select v-model="courseForm.teacherId" clearable placeholder="可选">
+                  <el-option
+                    v-for="teacher in users.filter((user) => user.role === 'teacher')"
+                    :key="teacher.id"
+                    :label="`${teacher.realName} · ${teacher.username}`"
+                    :value="teacher.id"
+                  />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="课程说明">
+                <el-input v-model="courseForm.description" type="textarea" :rows="3" />
+              </el-form-item>
+              <el-button type="primary" :loading="saving" @click="createCourseAction">创建课程</el-button>
+            </el-form>
+          </article>
+
+          <article class="status-card">
+            <p class="eyebrow">Class</p>
+            <h2>新建班级</h2>
+            <el-form label-position="top">
+              <el-form-item label="所属课程">
+                <el-select v-model="classForm.courseId" placeholder="请选择课程">
+                  <el-option
+                    v-for="course in academic?.courses || []"
+                    :key="course.id"
+                    :label="course.name"
+                    :value="course.id"
+                  />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="班级名称">
+                <el-input v-model.trim="classForm.name" />
+              </el-form-item>
+              <el-form-item label="年级">
+                <el-input v-model.trim="classForm.grade" />
+              </el-form-item>
+              <el-form-item label="专业">
+                <el-input v-model.trim="classForm.major" />
+              </el-form-item>
+              <el-form-item label="学生">
+                <el-select v-model="classForm.studentIds" multiple filterable collapse-tags placeholder="选择学生">
+                  <el-option
+                    v-for="student in academic?.students || []"
+                    :key="student.id"
+                    :label="`${student.realName || student.username} · ${student.username}`"
+                    :value="student.id"
+                  />
+                </el-select>
+              </el-form-item>
+              <el-button type="primary" :loading="saving" @click="createClassAction">创建班级</el-button>
+            </el-form>
+          </article>
+
+          <article class="status-card">
+            <p class="eyebrow">Overview</p>
+            <h2>课程与班级</h2>
+            <div class="exam-list">
+              <button
+                v-for="item in academic?.classes || []"
+                :key="item.id"
+                :class="['exam-list-item', { active: selectedClass?.id === item.id }]"
+                type="button"
+                @click="selectClass(item)"
+              >
+                <strong>{{ item.name }}</strong>
+                <span>{{ item.courseName }} · {{ item.major || '未设置专业' }} · {{ item.studentCount }} 名学生</span>
+              </button>
+            </div>
+
+            <el-divider />
+
+            <h2>调整班级学生</h2>
+            <el-empty v-if="!selectedClass" description="请选择班级" />
+            <el-form v-else label-position="top">
+              <el-form-item :label="selectedClass.name">
+                <el-select v-model="classStudentForm.studentIds" multiple filterable collapse-tags placeholder="重新选择学生">
+                  <el-option
+                    v-for="student in academic?.students || []"
+                    :key="student.id"
+                    :label="`${student.realName || student.username} · ${student.username}`"
+                    :value="student.id"
+                  />
+                </el-select>
+              </el-form-item>
+              <el-button plain :loading="saving" @click="saveClassStudents">保存学生名单</el-button>
+            </el-form>
+          </article>
+        </section>
       </el-tab-pane>
     </el-tabs>
   </main>

@@ -15,6 +15,8 @@ public record GradingAnswerVO(
     String studentAnswer,
     Boolean isCorrect,
     BigDecimal autoScore,
+    BigDecimal aiSuggestionScore,
+    String aiComment,
     BigDecimal manualScore,
     BigDecimal finalScore,
     String gradingStatus,

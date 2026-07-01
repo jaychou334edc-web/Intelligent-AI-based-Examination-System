@@ -12,9 +12,28 @@ import java.util.Optional;
 
 public interface ExamRepository {
 
-    Long create(String title, String description, Integer durationMinutes, Long currentUserId);
+    Long create(
+        String title,
+        String description,
+        Integer durationMinutes,
+        Long courseId,
+        Long classId,
+        LocalDateTime startTime,
+        LocalDateTime endTime,
+        Long currentUserId
+    );
 
-    void updateDraft(Long examId, String title, String description, Integer durationMinutes, Long teacherId);
+    void updateDraft(
+        Long examId,
+        String title,
+        String description,
+        Integer durationMinutes,
+        Long courseId,
+        Long classId,
+        LocalDateTime startTime,
+        LocalDateTime endTime,
+        Long teacherId
+    );
 
     List<ExamSummaryVO> findTeacherExams(Long teacherId);
 
@@ -30,7 +49,7 @@ public interface ExamRepository {
 
     void archivePublished(Long examId, Long teacherId);
 
-    void assignPublishedExamToStudents(Long examId);
+    void assignPublishedExamToStudents(Long examId, Long classId);
 
     List<ExamSummaryVO> findStudentExams(Long studentId);
 

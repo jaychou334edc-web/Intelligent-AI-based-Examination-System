@@ -14,19 +14,25 @@ import {
   type ExamSummary,
 } from '../api/exams'
 import { getRecentQuestions, type QuestionBankItem } from '../api/questions'
+import { getAcademicClasses, type TeachingClass } from '../api/academic'
 
 const router = useRouter()
 const exams = ref<ExamSummary[]>([])
 const questions = ref<QuestionBankItem[]>([])
+const classes = ref<TeachingClass[]>([])
 const selectedExam = ref<ExamDetail | null>(null)
 const selectedQuestionIds = ref<number[]>([])
 const loading = ref(false)
 const saving = ref(false)
+const pendingQuestionIds = ref<number[]>([])
 
 const form = reactive({
   title: '本地测试考试',
   description: '用于机房本地测试的在线考试。',
   durationMinutes: 60,
+  classId: undefined as number | undefined,
+  startTime: '',
+  endTime: '',
 })
 
 const questionTypeLabels: Record<string, string> = {
@@ -44,9 +50,11 @@ const canEditExamInfo = computed(() => !selectedExam.value || selectedExam.value
 async function loadAll() {
   loading.value = true
   try {
-    const [examList, questionList] = await Promise.all([getTeacherExams(), getRecentQuestions(200)])
+    hydratePendingQuestionIds()
+    const [examList, questionList, classList] = await Promise.all([getTeacherExams(), getRecentQuestions(200), getAcademicClasses()])
     exams.value = examList
     questions.value = questionList
+    classes.value = classList
     if (!selectedExam.value && examList.length > 0) {
       await selectExam(examList[0].id)
     }
@@ -57,10 +65,29 @@ async function loadAll() {
   }
 }
 
+function hydratePendingQuestionIds() {
+  const raw = sessionStorage.getItem('aes_selected_question_ids')
+  if (!raw) {
+    return
+  }
+  try {
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed)) {
+      pendingQuestionIds.value = parsed.map(Number).filter((value) => Number.isFinite(value))
+    }
+  } catch {
+    pendingQuestionIds.value = []
+  }
+  sessionStorage.removeItem('aes_selected_question_ids')
+}
+
 function syncForm(exam: ExamDetail) {
   form.title = exam.title
   form.description = exam.description ?? ''
   form.durationMinutes = exam.durationMinutes
+  form.classId = exam.classId
+  form.startTime = exam.startTime ?? ''
+  form.endTime = exam.endTime ?? ''
 }
 
 function clearSelection() {
@@ -69,15 +96,36 @@ function clearSelection() {
   form.title = '本地测试考试'
   form.description = '用于机房本地测试的在线考试。'
   form.durationMinutes = 60
+  form.classId = undefined
+  form.startTime = ''
+  form.endTime = ''
+}
+
+function selectedClass() {
+  return classes.value.find((item) => item.id === form.classId)
+}
+
+function examPayload() {
+  const targetClass = selectedClass()
+  return {
+    title: form.title,
+    description: form.description,
+    durationMinutes: form.durationMinutes,
+    courseId: targetClass?.courseId,
+    classId: targetClass?.id,
+    startTime: form.startTime || undefined,
+    endTime: form.endTime || undefined,
+  }
 }
 
 async function createExam() {
   saving.value = true
   try {
-    selectedExam.value = await createTeacherExam({ ...form })
-    selectedQuestionIds.value = []
+    selectedExam.value = await createTeacherExam(examPayload())
+    selectedQuestionIds.value = pendingQuestionIds.value.length > 0 ? [...pendingQuestionIds.value] : []
+    pendingQuestionIds.value = []
     ElMessage.success('考试草稿已创建')
-    await loadAll()
+    exams.value = await getTeacherExams()
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '创建考试失败')
   } finally {
@@ -88,6 +136,11 @@ async function createExam() {
 async function selectExam(examId: number) {
   selectedExam.value = await getTeacherExam(examId)
   selectedQuestionIds.value = selectedExam.value.questions.map((question) => question.id)
+  if (selectedExam.value.status === 'draft' && pendingQuestionIds.value.length > 0) {
+    selectedQuestionIds.value = Array.from(new Set([...selectedQuestionIds.value, ...pendingQuestionIds.value]))
+    pendingQuestionIds.value = []
+    ElMessage.success('已带入题库页批量选择的题目，请保存组卷')
+  }
   syncForm(selectedExam.value)
 }
 
@@ -97,7 +150,7 @@ async function saveExamInfo() {
   }
   saving.value = true
   try {
-    selectedExam.value = await updateTeacherExam(selectedExam.value.id, { ...form })
+    selectedExam.value = await updateTeacherExam(selectedExam.value.id, examPayload())
     syncForm(selectedExam.value)
     ElMessage.success('考试信息已保存')
     await loadAll()
@@ -184,6 +237,36 @@ function statusLabel(status: string) {
   return '草稿'
 }
 
+function examWindowLabel(exam: ExamSummary | ExamDetail) {
+  if (!exam.startTime && !exam.endTime) {
+    return '不限时间窗口'
+  }
+  return `${formatDateTime(exam.startTime)} - ${formatDateTime(exam.endTime)}`
+}
+
+function formatDateTime(value?: string) {
+  return value ? value.replace('T', ' ').slice(0, 16) : '未设置'
+}
+
+function runtimeStatus(exam: ExamSummary | ExamDetail) {
+  if (exam.status === 'draft') {
+    return '草稿'
+  }
+  if (exam.status === 'archived') {
+    return '已归档'
+  }
+  const now = Date.now()
+  const start = exam.startTime ? new Date(exam.startTime).getTime() : null
+  const end = exam.endTime ? new Date(exam.endTime).getTime() : null
+  if (start && now < start) {
+    return '未开始'
+  }
+  if (end && now > end) {
+    return '已结束'
+  }
+  return '进行中'
+}
+
 function questionPreview(question: QuestionBankItem) {
   return question.stem.replace(/\[IMG:[^\]]+\]/g, '[图片]').slice(0, 90)
 }
@@ -230,6 +313,34 @@ onMounted(loadAll)
               :disabled="!canEditExamInfo"
             />
           </el-form-item>
+          <el-form-item label="目标班级">
+            <el-select v-model="form.classId" clearable placeholder="不选择则发布给全部学生" :disabled="!canEditExamInfo">
+              <el-option
+                v-for="item in classes"
+                :key="item.id"
+                :label="`${item.courseName} · ${item.name}（${item.studentCount}人）`"
+                :value="item.id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="开始时间">
+            <el-date-picker
+              v-model="form.startTime"
+              type="datetime"
+              value-format="YYYY-MM-DDTHH:mm:ss"
+              placeholder="可选"
+              :disabled="!canEditExamInfo"
+            />
+          </el-form-item>
+          <el-form-item label="结束时间">
+            <el-date-picker
+              v-model="form.endTime"
+              type="datetime"
+              value-format="YYYY-MM-DDTHH:mm:ss"
+              placeholder="可选"
+              :disabled="!canEditExamInfo"
+            />
+          </el-form-item>
           <div class="action-list">
             <el-button v-if="!selectedExam" type="primary" :loading="saving" @click="createExam">创建草稿</el-button>
             <el-button v-else type="primary" :disabled="selectedExam.status !== 'draft'" :loading="saving" @click="saveExamInfo">保存信息</el-button>
@@ -254,7 +365,8 @@ onMounted(loadAll)
             @click="selectExam(exam.id)"
           >
             <strong>{{ exam.title }}</strong>
-            <span>{{ statusLabel(exam.status) }} · {{ exam.questionCount }} 题 · {{ exam.totalScore }} 分</span>
+            <span>{{ runtimeStatus(exam) }} · {{ exam.className || '全部学生' }} · {{ exam.questionCount }} 题 · {{ exam.totalScore }} 分</span>
+            <span>{{ examWindowLabel(exam) }}</span>
           </button>
         </div>
       </article>
@@ -266,7 +378,8 @@ onMounted(loadAll)
         <template v-else>
           <div class="exam-detail-meta">
             <strong>{{ selectedExam.title }}</strong>
-            <span>{{ statusLabel(selectedExam.status) }} · {{ selectedExam.durationMinutes }} 分钟 · {{ selectedExam.questionCount }} 题</span>
+            <span>{{ runtimeStatus(selectedExam) }} · {{ selectedExam.className || '全部学生' }} · {{ selectedExam.durationMinutes }} 分钟 · {{ selectedExam.questionCount }} 题</span>
+            <span>{{ examWindowLabel(selectedExam) }}</span>
           </div>
 
           <el-alert

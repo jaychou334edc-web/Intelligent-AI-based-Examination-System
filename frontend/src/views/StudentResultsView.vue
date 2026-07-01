@@ -2,7 +2,9 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Back, Reading, Refresh } from '@element-plus/icons-vue'
 import { getStudentResult, getStudentResults, type SubmissionGrading, type SubmissionSummary } from '../api/grading'
+import AppEmptyState from '../components/AppEmptyState.vue'
 
 const router = useRouter()
 const results = ref<SubmissionSummary[]>([])
@@ -43,8 +45,8 @@ onMounted(loadResults)
         <p class="summary">查看已提交考试的总分和每题得分。主观题需要教师阅卷后才会计入最终成绩。</p>
       </div>
       <div class="header-actions">
-        <el-button plain @click="router.push('/student')">返回工作台</el-button>
-        <el-button plain @click="loadResults">刷新</el-button>
+        <el-button plain :icon="Back" @click="router.push('/student')">返回工作台</el-button>
+        <el-button plain :icon="Refresh" @click="loadResults">刷新</el-button>
       </div>
     </header>
 
@@ -53,7 +55,13 @@ onMounted(loadResults)
         <p class="eyebrow">My Scores</p>
         <h2>成绩列表</h2>
         <el-skeleton v-if="loading" :rows="5" animated />
-        <el-empty v-else-if="results.length === 0" description="暂无成绩" />
+        <AppEmptyState v-else-if="results.length === 0">
+          <template #icon>
+            <Reading />
+          </template>
+          <template #title>暂无成绩</template>
+          提交考试并完成阅卷后，成绩会展示在这里。
+        </AppEmptyState>
         <div v-else class="exam-list">
           <button
             v-for="result in results"
@@ -71,7 +79,13 @@ onMounted(loadResults)
       <article class="status-card grading-detail-card">
         <p class="eyebrow">Detail</p>
         <h2>成绩详情</h2>
-        <el-empty v-if="!current" description="请选择成绩记录" />
+        <AppEmptyState v-if="!current">
+          <template #icon>
+            <Reading />
+          </template>
+          <template #title>请选择成绩记录</template>
+          从左侧列表选择一场考试，查看每题得分和教师评语。
+        </AppEmptyState>
         <template v-else>
           <div class="exam-detail-meta">
             <strong>{{ current.examTitle }}</strong>

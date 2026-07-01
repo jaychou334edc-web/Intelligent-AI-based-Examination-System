@@ -21,5 +21,7 @@ public interface GradingRepository {
 
     void updateManualGrade(Long submissionId, Long questionId, BigDecimal score, String teacherComment, Long graderId);
 
+    void updateAiSuggestion(Long submissionId, Long questionId, BigDecimal score, String comment);
+
     void refreshSubmissionTotal(Long submissionId);
 }

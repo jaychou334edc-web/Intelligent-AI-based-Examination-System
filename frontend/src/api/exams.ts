@@ -19,10 +19,16 @@ export interface ExamSummary {
   title: string
   description?: string
   durationMinutes: number
+  courseId?: number
+  classId?: number
+  courseName?: string
+  className?: string
   status: string
   questionCount: number
   totalScore: number
   publishedAt?: string
+  startTime?: string
+  endTime?: string
   createdAt: string
   submissionStatus?: string
 }
@@ -38,6 +44,10 @@ export interface CreateExamPayload {
   title: string
   description?: string
   durationMinutes: number
+  courseId?: number
+  classId?: number
+  startTime?: string
+  endTime?: string
 }
 
 export interface SaveAnswerPayload {

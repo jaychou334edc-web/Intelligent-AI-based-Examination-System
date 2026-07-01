@@ -80,6 +80,39 @@ public class QuestionImportService {
         return questionRepository.findRecent(limit);
     }
 
+    @Transactional
+    public QuestionBankItemVO updateQuestion(Long questionId, ReviewQuestionRequest request) {
+        SecurityContext context = requireCurrentUser();
+        ensureQuestionExists(questionId);
+        questionRepository.updateQuestion(questionId, request, context.userId());
+        return questionRepository.findById(questionId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "题目不存在"));
+    }
+
+    @Transactional
+    public void deleteQuestion(Long questionId) {
+        SecurityContext context = requireCurrentUser();
+        ensureQuestionExists(questionId);
+        if (questionRepository.isUsedInExam(questionId)) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "该题目已被考试引用，不能直接删除");
+        }
+        questionRepository.softDelete(questionId, context.userId());
+    }
+
+    private SecurityContext requireCurrentUser() {
+        SecurityContext context = SecurityContextHolder.current();
+        if (context == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        return context;
+    }
+
+    private void ensureQuestionExists(Long questionId) {
+        if (!questionRepository.existsActive(questionId)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "题目不存在");
+        }
+    }
+
     private ReviewQuestionVO toReviewVO(ReviewQuestionRequest request) {
         List<QuestionOptionVO> options = request.options() == null
             ? List.of()

@@ -6,6 +6,7 @@ import {
   getTeacherSubmission,
   getTeacherSubmissions,
   gradeTeacherAnswer,
+  suggestAiGrade,
   type GradingAnswer,
   type SubmissionGrading,
   type SubmissionSummary,
@@ -16,6 +17,7 @@ const submissions = ref<SubmissionSummary[]>([])
 const current = ref<SubmissionGrading | null>(null)
 const loading = ref(false)
 const grading = ref(false)
+const suggesting = ref<Record<number, boolean>>({})
 const draftScores = reactive<Record<number, number>>({})
 const draftComments = reactive<Record<number, string>>({})
 
@@ -74,6 +76,41 @@ async function saveGrade(answer: GradingAnswer) {
   } finally {
     grading.value = false
   }
+}
+
+async function requestAiSuggestion(answer: GradingAnswer) {
+  if (!current.value) {
+    return
+  }
+  suggesting.value = {
+    ...suggesting.value,
+    [answer.questionId]: true,
+  }
+  try {
+    current.value = await suggestAiGrade(current.value.submissionId, answer.questionId)
+    const updated = current.value.answers.find((item) => item.questionId === answer.questionId)
+    if (updated?.aiSuggestionScore != null) {
+      draftScores[answer.questionId] = updated.aiSuggestionScore
+      draftComments[answer.questionId] = updated.aiComment || draftComments[answer.questionId] || ''
+    }
+    ElMessage.success('AI 评分建议已生成')
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : 'AI 评分失败')
+  } finally {
+    suggesting.value = {
+      ...suggesting.value,
+      [answer.questionId]: false,
+    }
+  }
+}
+
+function applyAiSuggestion(answer: GradingAnswer) {
+  if (answer.aiSuggestionScore == null) {
+    ElMessage.warning('请先生成 AI 建议')
+    return
+  }
+  draftScores[answer.questionId] = answer.aiSuggestionScore
+  draftComments[answer.questionId] = answer.aiComment || ''
 }
 
 function scoreText(value?: number) {
@@ -150,6 +187,28 @@ onMounted(loadSubmissions)
                 <el-input-number v-model="draftScores[answer.questionId]" :min="0" :max="answer.maxScore" :step="0.5" />
                 <el-input v-model="draftComments[answer.questionId]" placeholder="教师评语" />
                 <el-button type="primary" :loading="grading" @click="saveGrade(answer)">保存评分</el-button>
+              </div>
+
+              <div v-if="needsManual(answer)" class="ai-grade-panel">
+                <div class="ai-grade-heading">
+                  <div>
+                    <p class="eyebrow">AI Suggestion</p>
+                    <h2>主观题 AI 辅助评分</h2>
+                  </div>
+                  <div class="header-actions">
+                    <el-button plain :loading="suggesting[answer.questionId]" @click="requestAiSuggestion(answer)">
+                      {{ answer.aiSuggestionScore == null ? '生成建议' : '重新评分' }}
+                    </el-button>
+                    <el-button type="success" plain :disabled="answer.aiSuggestionScore == null" @click="applyAiSuggestion(answer)">
+                      采用建议
+                    </el-button>
+                  </div>
+                </div>
+                <el-empty v-if="answer.aiSuggestionScore == null" description="点击生成建议，AI 会给出参考分和理由" />
+                <div v-else class="ai-grade-result">
+                  <strong>{{ answer.aiSuggestionScore }} / {{ answer.maxScore }} 分</strong>
+                  <p>{{ answer.aiComment }}</p>
+                </div>
               </div>
             </section>
           </div>

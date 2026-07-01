@@ -12,6 +12,8 @@ export interface GradingAnswer {
   studentAnswer?: string
   isCorrect?: boolean
   autoScore?: number
+  aiSuggestionScore?: number
+  aiComment?: string
   manualScore?: number
   finalScore?: number
   gradingStatus: string
@@ -47,6 +49,12 @@ export function gradeTeacherAnswer(submissionId: number, questionId: number, sco
   return apiRequest<SubmissionGrading>(`/api/teacher/grading/submissions/${submissionId}/answers`, {
     method: 'POST',
     body: JSON.stringify({ questionId, score, teacherComment }),
+  })
+}
+
+export function suggestAiGrade(submissionId: number, questionId: number) {
+  return apiRequest<SubmissionGrading>(`/api/teacher/grading/submissions/${submissionId}/answers/${questionId}/ai-suggestion`, {
+    method: 'POST',
   })
 }
 

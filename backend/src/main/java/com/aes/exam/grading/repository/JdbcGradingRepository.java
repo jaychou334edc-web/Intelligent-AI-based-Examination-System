@@ -179,6 +179,19 @@ public class JdbcGradingRepository implements GradingRepository {
             """, submissionId, submissionId, submissionId);
     }
 
+    @Override
+    public void updateAiSuggestion(Long submissionId, Long questionId, BigDecimal score, String comment) {
+        jdbcTemplate.update("""
+            INSERT INTO grading_records (
+                submission_id, question_id, auto_score, manual_score, final_score, grader_id,
+                ai_suggestion_score, ai_comment, teacher_comment, grading_status, graded_at, created_at, updated_at
+            )
+            VALUES (?, ?, NULL, NULL, 0, NULL, ?, ?, NULL, 'pending', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ON DUPLICATE KEY UPDATE ai_suggestion_score = VALUES(ai_suggestion_score),
+                ai_comment = VALUES(ai_comment), updated_at = CURRENT_TIMESTAMP
+            """, submissionId, questionId, score, comment);
+    }
+
     private Optional<SubmissionGradingVO> findSubmission(String sql, Object... args) {
         List<SubmissionSummaryVO> summaries = jdbcTemplate.query(sql, this::mapSummary, args);
         if (summaries.isEmpty()) {
@@ -204,7 +217,8 @@ public class JdbcGradingRepository implements GradingRepository {
         return jdbcTemplate.query("""
                 SELECT q.id AS question_id, q.source_paper_id, q.question_type, q.stem, eq.score AS max_score,
                        qa.answer_text AS correct_answer, sa.answer_text AS student_answer, sa.is_correct,
-                       gr.auto_score, gr.manual_score, gr.final_score, gr.grading_status, gr.teacher_comment
+                       gr.auto_score, gr.ai_suggestion_score, gr.ai_comment, gr.manual_score, gr.final_score,
+                       gr.grading_status, gr.teacher_comment
                 FROM submissions s
                 JOIN exam_questions eq ON eq.exam_id = s.exam_id
                 JOIN questions q ON q.id = eq.question_id
@@ -224,6 +238,8 @@ public class JdbcGradingRepository implements GradingRepository {
                     rs.getString("student_answer"),
                     toBoolean(rs.getObject("is_correct")),
                     rs.getBigDecimal("auto_score"),
+                    rs.getBigDecimal("ai_suggestion_score"),
+                    rs.getString("ai_comment"),
                     rs.getBigDecimal("manual_score"),
                     rs.getBigDecimal("final_score"),
                     rs.getString("grading_status"),

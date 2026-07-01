@@ -8,10 +8,16 @@ public record ExamSummaryVO(
     String title,
     String description,
     Integer durationMinutes,
+    Long courseId,
+    Long classId,
+    String courseName,
+    String className,
     String status,
     Integer questionCount,
     BigDecimal totalScore,
     LocalDateTime publishedAt,
+    LocalDateTime startTime,
+    LocalDateTime endTime,
     LocalDateTime createdAt,
     String submissionStatus
 ) {

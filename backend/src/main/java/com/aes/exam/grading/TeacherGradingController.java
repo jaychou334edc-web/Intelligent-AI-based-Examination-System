@@ -47,4 +47,13 @@ public class TeacherGradingController {
     ) {
         return ApiResponse.success(gradingService.gradeAnswer(submissionId, request));
     }
+
+    @Operation(summary = "生成主观题 AI 评分建议")
+    @PostMapping("/submissions/{submissionId}/answers/{questionId}/ai-suggestion")
+    public ApiResponse<SubmissionGradingVO> suggestAiGrade(
+        @PathVariable Long submissionId,
+        @PathVariable Long questionId
+    ) {
+        return ApiResponse.success(gradingService.suggestAiGrade(submissionId, questionId));
+    }
 }

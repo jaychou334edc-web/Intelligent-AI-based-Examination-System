@@ -17,9 +17,10 @@ public class RoleAccessInterceptor implements HandlerInterceptor {
         String path = request.getRequestURI();
         boolean protectedAuthPath = path.equals("/api/auth/me") || path.equals("/api/auth/logout");
         boolean protectedResourcePath = path.matches("/api/papers/\\d+/images/[^/]+");
+        boolean protectedAcademicPath = path.startsWith("/api/academic/");
         UserRole requiredRole = protectedResourcePath ? null : requiredRole(path);
 
-        if (requiredRole == null && !protectedAuthPath && !protectedResourcePath) {
+        if (requiredRole == null && !protectedAuthPath && !protectedResourcePath && !protectedAcademicPath) {
             return true;
         }
 

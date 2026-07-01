@@ -30,42 +30,76 @@ public class JdbcExamRepository implements ExamRepository {
     }
 
     @Override
-    public Long create(String title, String description, Integer durationMinutes, Long currentUserId) {
+    public Long create(
+        String title,
+        String description,
+        Integer durationMinutes,
+        Long courseId,
+        Long classId,
+        LocalDateTime startTime,
+        LocalDateTime endTime,
+        Long currentUserId
+    ) {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
             var statement = connection.prepareStatement("""
-                INSERT INTO exams (title, description, duration_minutes, status, created_at, updated_at, created_by, updated_by)
-                VALUES (?, ?, ?, 'draft', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?)
+                INSERT INTO exams (
+                    title, description, duration_minutes, course_id, class_id, start_time, end_time,
+                    status, created_at, updated_at, created_by, updated_by
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?)
                 """, new String[]{"id"});
             statement.setString(1, title);
             statement.setString(2, description);
             statement.setInt(3, durationMinutes);
-            statement.setLong(4, currentUserId);
-            statement.setLong(5, currentUserId);
+            statement.setObject(4, courseId);
+            statement.setObject(5, classId);
+            statement.setObject(6, startTime);
+            statement.setObject(7, endTime);
+            statement.setLong(8, currentUserId);
+            statement.setLong(9, currentUserId);
             return statement;
         }, keyHolder);
         return keyHolder.getKey().longValue();
     }
 
     @Override
-    public void updateDraft(Long examId, String title, String description, Integer durationMinutes, Long teacherId) {
+    public void updateDraft(
+        Long examId,
+        String title,
+        String description,
+        Integer durationMinutes,
+        Long courseId,
+        Long classId,
+        LocalDateTime startTime,
+        LocalDateTime endTime,
+        Long teacherId
+    ) {
         jdbcTemplate.update("""
             UPDATE exams
-            SET title = ?, description = ?, duration_minutes = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ?
+            SET title = ?, description = ?, duration_minutes = ?, course_id = ?, class_id = ?,
+                start_time = ?, end_time = ?,
+                updated_at = CURRENT_TIMESTAMP, updated_by = ?
             WHERE id = ? AND created_by = ? AND status = 'draft' AND is_deleted = 0
-            """, title, description, durationMinutes, teacherId, examId, teacherId);
+            """, title, description, durationMinutes, courseId, classId, startTime, endTime, teacherId, examId, teacherId);
     }
 
     @Override
     public List<ExamSummaryVO> findTeacherExams(Long teacherId) {
         return jdbcTemplate.query("""
-                SELECT e.id, e.title, e.description, e.duration_minutes, e.status, e.published_at, e.created_at,
+                SELECT e.id, e.title, e.description, e.duration_minutes, e.course_id, e.class_id,
+                       e.start_time, e.end_time,
+                       c.name AS course_name, tc.name AS class_name, e.status, e.published_at, e.created_at,
                        COUNT(eq.id) AS question_count, COALESCE(SUM(eq.score), 0) AS total_score,
                        NULL AS submission_status
                 FROM exams e
+                LEFT JOIN courses c ON c.id = e.course_id
+                LEFT JOIN teaching_classes tc ON tc.id = e.class_id
                 LEFT JOIN exam_questions eq ON eq.exam_id = e.id
                 WHERE e.created_by = ? AND e.is_deleted = 0
-                GROUP BY e.id, e.title, e.description, e.duration_minutes, e.status, e.published_at, e.created_at
+                GROUP BY e.id, e.title, e.description, e.duration_minutes, e.course_id, e.class_id,
+                         e.start_time, e.end_time,
+                         c.name, tc.name, e.status, e.published_at, e.created_at
                 ORDER BY e.created_at DESC, e.id DESC
                 """, this::mapSummary, teacherId);
     }
@@ -73,13 +107,19 @@ public class JdbcExamRepository implements ExamRepository {
     @Override
     public Optional<ExamDetailVO> findTeacherExamDetail(Long examId, Long teacherId) {
         return findExamDetail("""
-            SELECT e.id, e.title, e.description, e.duration_minutes, e.status, e.published_at,
+            SELECT e.id, e.title, e.description, e.duration_minutes, e.course_id, e.class_id,
+                   e.start_time, e.end_time,
+                   c.name AS course_name, tc.name AS class_name, e.status, e.published_at,
                    COUNT(eq.id) AS question_count, COALESCE(SUM(eq.score), 0) AS total_score,
                    NULL AS submission_id, NULL AS submission_status, NULL AS submission_started_at
             FROM exams e
+            LEFT JOIN courses c ON c.id = e.course_id
+            LEFT JOIN teaching_classes tc ON tc.id = e.class_id
             LEFT JOIN exam_questions eq ON eq.exam_id = e.id
             WHERE e.id = ? AND e.created_by = ? AND e.is_deleted = 0
-            GROUP BY e.id, e.title, e.description, e.duration_minutes, e.status, e.published_at
+            GROUP BY e.id, e.title, e.description, e.duration_minutes, e.course_id, e.class_id,
+                     e.start_time, e.end_time,
+                     c.name, tc.name, e.status, e.published_at
             """, examId, teacherId);
     }
 
@@ -141,31 +181,53 @@ public class JdbcExamRepository implements ExamRepository {
     }
 
     @Override
-    public void assignPublishedExamToStudents(Long examId) {
+    public void assignPublishedExamToStudents(Long examId, Long classId) {
+        if (classId == null) {
+            jdbcTemplate.update("""
+                INSERT INTO exam_participants (exam_id, student_id, status, assigned_at)
+                SELECT ?, u.id, 'assigned', CURRENT_TIMESTAMP
+                FROM users u
+                WHERE u.role = 'student' AND u.status = 'active' AND u.is_deleted = 0
+                  AND NOT EXISTS (
+                      SELECT 1 FROM exam_participants ep
+                      WHERE ep.exam_id = ? AND ep.student_id = u.id
+                  )
+                """, examId, examId);
+            return;
+        }
+
         jdbcTemplate.update("""
             INSERT INTO exam_participants (exam_id, student_id, status, assigned_at)
             SELECT ?, u.id, 'assigned', CURRENT_TIMESTAMP
-            FROM users u
-            WHERE u.role = 'student' AND u.status = 'active' AND u.is_deleted = 0
+            FROM class_students cs
+            JOIN users u ON u.id = cs.student_id
+            WHERE cs.class_id = ? AND cs.is_deleted = 0
+              AND u.role = 'student' AND u.status = 'active' AND u.is_deleted = 0
               AND NOT EXISTS (
                   SELECT 1 FROM exam_participants ep
                   WHERE ep.exam_id = ? AND ep.student_id = u.id
               )
-            """, examId, examId);
+            """, examId, classId, examId);
     }
 
     @Override
     public List<ExamSummaryVO> findStudentExams(Long studentId) {
         return jdbcTemplate.query("""
-                SELECT e.id, e.title, e.description, e.duration_minutes, e.status, e.published_at, e.created_at,
+                SELECT e.id, e.title, e.description, e.duration_minutes, e.course_id, e.class_id,
+                       e.start_time, e.end_time,
+                       c.name AS course_name, tc.name AS class_name, e.status, e.published_at, e.created_at,
                        COUNT(eq.id) AS question_count, COALESCE(SUM(eq.score), 0) AS total_score,
                        COALESCE(s.status, ep.status) AS submission_status
                 FROM exam_participants ep
                 JOIN exams e ON e.id = ep.exam_id
+                LEFT JOIN courses c ON c.id = e.course_id
+                LEFT JOIN teaching_classes tc ON tc.id = e.class_id
                 LEFT JOIN exam_questions eq ON eq.exam_id = e.id
                 LEFT JOIN submissions s ON s.exam_id = e.id AND s.student_id = ep.student_id
                 WHERE ep.student_id = ? AND e.status = 'published' AND e.is_deleted = 0
-                GROUP BY e.id, e.title, e.description, e.duration_minutes, e.status, e.published_at, e.created_at,
+                GROUP BY e.id, e.title, e.description, e.duration_minutes, e.course_id, e.class_id,
+                         e.start_time, e.end_time,
+                         c.name, tc.name, e.status, e.published_at, e.created_at,
                          s.status, ep.status
                 ORDER BY e.published_at DESC, e.id DESC
                 """, this::mapSummary, studentId);
@@ -174,15 +236,21 @@ public class JdbcExamRepository implements ExamRepository {
     @Override
     public Optional<ExamDetailVO> findStudentExamDetail(Long examId, Long studentId) {
         return findExamDetail("""
-            SELECT e.id, e.title, e.description, e.duration_minutes, e.status, e.published_at,
+            SELECT e.id, e.title, e.description, e.duration_minutes, e.course_id, e.class_id,
+                   e.start_time, e.end_time,
+                   c.name AS course_name, tc.name AS class_name, e.status, e.published_at,
                    COUNT(eq.id) AS question_count, COALESCE(SUM(eq.score), 0) AS total_score,
                    s.id AS submission_id, COALESCE(s.status, ep.status) AS submission_status, s.started_at AS submission_started_at
             FROM exam_participants ep
             JOIN exams e ON e.id = ep.exam_id
+            LEFT JOIN courses c ON c.id = e.course_id
+            LEFT JOIN teaching_classes tc ON tc.id = e.class_id
             LEFT JOIN exam_questions eq ON eq.exam_id = e.id
             LEFT JOIN submissions s ON s.exam_id = e.id AND s.student_id = ep.student_id
             WHERE e.id = ? AND ep.student_id = ? AND e.status = 'published' AND e.is_deleted = 0
-            GROUP BY e.id, e.title, e.description, e.duration_minutes, e.status, e.published_at, s.id, s.status, ep.status
+            GROUP BY e.id, e.title, e.description, e.duration_minutes, e.course_id, e.class_id,
+                     e.start_time, e.end_time,
+                     c.name, tc.name, e.status, e.published_at, s.id, s.status, ep.status
             """, examId, studentId);
     }
 
@@ -293,15 +361,21 @@ public class JdbcExamRepository implements ExamRepository {
             exam.title(),
             exam.description(),
             exam.durationMinutes(),
+            exam.courseId(),
+            exam.classId(),
+            exam.courseName(),
+            exam.className(),
             exam.status(),
             exam.questionCount(),
             exam.totalScore(),
             exam.publishedAt(),
+            exam.startTime(),
+            exam.endTime(),
             findExamQuestions(exam.id(), exam.submissionId(), includeAnswer),
             exam.submissionId(),
             exam.submissionStatus(),
             exam.submissionStartedAt(),
-            remainingSeconds(exam.durationMinutes(), exam.submissionStartedAt(), exam.submissionStatus())
+            remainingSeconds(exam.durationMinutes(), exam.submissionStartedAt(), exam.submissionStatus(), exam.endTime())
         ));
     }
 
@@ -352,10 +426,16 @@ public class JdbcExamRepository implements ExamRepository {
             rs.getString("title"),
             rs.getString("description"),
             rs.getInt("duration_minutes"),
+            (Long) rs.getObject("course_id"),
+            (Long) rs.getObject("class_id"),
+            rs.getString("course_name"),
+            rs.getString("class_name"),
             rs.getString("status"),
             rs.getInt("question_count"),
             rs.getBigDecimal("total_score"),
             toLocalDateTime(rs.getTimestamp("published_at")),
+            toLocalDateTime(rs.getTimestamp("start_time")),
+            toLocalDateTime(rs.getTimestamp("end_time")),
             toLocalDateTime(rs.getTimestamp("created_at")),
             rs.getString("submission_status")
         );
@@ -368,10 +448,16 @@ public class JdbcExamRepository implements ExamRepository {
             rs.getString("title"),
             rs.getString("description"),
             rs.getInt("duration_minutes"),
+            (Long) rs.getObject("course_id"),
+            (Long) rs.getObject("class_id"),
+            rs.getString("course_name"),
+            rs.getString("class_name"),
             rs.getString("status"),
             rs.getInt("question_count"),
             rs.getBigDecimal("total_score"),
             toLocalDateTime(rs.getTimestamp("published_at")),
+            toLocalDateTime(rs.getTimestamp("start_time")),
+            toLocalDateTime(rs.getTimestamp("end_time")),
             List.of(),
             submissionId,
             rs.getString("submission_status"),
@@ -384,11 +470,14 @@ public class JdbcExamRepository implements ExamRepository {
         return timestamp == null ? null : timestamp.toLocalDateTime();
     }
 
-    private Long remainingSeconds(Integer durationMinutes, LocalDateTime startedAt, String submissionStatus) {
+    private Long remainingSeconds(Integer durationMinutes, LocalDateTime startedAt, String submissionStatus, LocalDateTime examEndTime) {
         if (durationMinutes == null || startedAt == null || "submitted".equals(submissionStatus)) {
             return null;
         }
         LocalDateTime endsAt = startedAt.plusMinutes(durationMinutes);
+        if (examEndTime != null && examEndTime.isBefore(endsAt)) {
+            endsAt = examEndTime;
+        }
         long seconds = Duration.between(LocalDateTime.now(), endsAt).getSeconds();
         return Math.max(0L, seconds);
     }
