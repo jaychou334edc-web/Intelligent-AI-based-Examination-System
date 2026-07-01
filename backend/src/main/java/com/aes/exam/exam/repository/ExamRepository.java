@@ -14,6 +14,8 @@ public interface ExamRepository {
 
     Long create(String title, String description, Integer durationMinutes, Long currentUserId);
 
+    void updateDraft(Long examId, String title, String description, Integer durationMinutes, Long teacherId);
+
     List<ExamSummaryVO> findTeacherExams(Long teacherId);
 
     Optional<ExamDetailVO> findTeacherExamDetail(Long examId, Long teacherId);
@@ -23,6 +25,10 @@ public interface ExamRepository {
     void replaceQuestions(Long examId, List<Long> questionIds);
 
     void publish(Long examId, Long teacherId);
+
+    void deleteDraft(Long examId, Long teacherId);
+
+    void archivePublished(Long examId, Long teacherId);
 
     void assignPublishedExamToStudents(Long examId);
 

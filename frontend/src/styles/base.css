@@ -584,6 +584,23 @@ h2 {
   align-items: start;
 }
 
+.admin-tabs {
+  min-width: 0;
+}
+
+.admin-layout {
+  display: grid;
+  grid-template-columns: 320px 360px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.config-list dd {
+  max-width: 760px;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
 .monitoring-detail {
   display: grid;
   gap: 20px;
@@ -709,6 +726,7 @@ h2 {
   .monitoring-layout,
   .monitoring-metrics,
   .monitoring-grid,
+  .admin-layout,
   .manual-grade-row {
     grid-template-columns: 1fr;
   }

@@ -8,7 +8,7 @@ import { loadPaperImageUrl } from '../api/papers'
 const router = useRouter()
 const questions = ref<QuestionBankItem[]>([])
 const loading = ref(false)
-const imageUrls = ref<Record<string, string>>({})
+const imageUrls = ref<Record<string, string | null>>({})
 
 const questionTypeLabels: Record<string, string> = {
   single_choice: '单选题',
@@ -19,7 +19,11 @@ const questionTypeLabels: Record<string, string> = {
 }
 
 function clearImageUrls() {
-  Object.values(imageUrls.value).forEach((url) => URL.revokeObjectURL(url))
+  Object.values(imageUrls.value).forEach((url) => {
+    if (url) {
+      URL.revokeObjectURL(url)
+    }
+  })
   imageUrls.value = {}
 }
 
@@ -32,8 +36,12 @@ async function ensureImageUrl(paperId: number | undefined, imageId: string) {
     return
   }
   const key = imageKey(paperId, imageId)
-  if (imageUrls.value[key]) {
+  if (Object.prototype.hasOwnProperty.call(imageUrls.value, key)) {
     return
+  }
+  imageUrls.value = {
+    ...imageUrls.value,
+    [key]: '',
   }
   try {
     imageUrls.value = {
@@ -43,7 +51,7 @@ async function ensureImageUrl(paperId: number | undefined, imageId: string) {
   } catch {
     imageUrls.value = {
       ...imageUrls.value,
-      [key]: '',
+      [key]: null,
     }
   }
 }
@@ -53,7 +61,14 @@ function imageUrl(paperId: number | undefined, imageId: string) {
     return ''
   }
   void ensureImageUrl(paperId, imageId)
-  return imageUrls.value[imageKey(paperId, imageId)] ?? ''
+  return imageUrls.value[imageKey(paperId, imageId)] || ''
+}
+
+function imageFailed(paperId: number | undefined, imageId: string) {
+  if (!paperId) {
+    return false
+  }
+  return imageUrls.value[imageKey(paperId, imageId)] === null
 }
 
 function stemParts(text: string) {
@@ -117,6 +132,8 @@ onBeforeUnmount(clearImageUrls)
           <template v-for="(part, partIndex) in stemParts(question.stem)" :key="partIndex">
             <p v-if="part.type === 'text'">{{ part.value }}</p>
             <img v-else-if="imageUrl(question.sourcePaperId, part.value)" :src="imageUrl(question.sourcePaperId, part.value)" :alt="part.value" />
+            <span v-else-if="!question.sourcePaperId" class="image-loading">图片缺少试卷来源：{{ part.value }}</span>
+            <span v-else-if="imageFailed(question.sourcePaperId, part.value)" class="image-loading">图片加载失败：{{ part.value }}</span>
             <span v-else class="image-loading">图片加载中：{{ part.value }}</span>
           </template>
         </div>

@@ -4,9 +4,11 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   createTeacherExam,
+  deleteTeacherExam,
   getTeacherExam,
   getTeacherExams,
   publishTeacherExam,
+  updateTeacherExam,
   updateTeacherExamQuestions,
   type ExamDetail,
   type ExamSummary,
@@ -36,6 +38,8 @@ const questionTypeLabels: Record<string, string> = {
 }
 
 const canEditQuestions = computed(() => selectedExam.value?.status === 'draft')
+const canArchive = computed(() => selectedExam.value?.status === 'published')
+const canEditExamInfo = computed(() => !selectedExam.value || selectedExam.value.status === 'draft')
 
 async function loadAll() {
   loading.value = true
@@ -51,6 +55,20 @@ async function loadAll() {
   } finally {
     loading.value = false
   }
+}
+
+function syncForm(exam: ExamDetail) {
+  form.title = exam.title
+  form.description = exam.description ?? ''
+  form.durationMinutes = exam.durationMinutes
+}
+
+function clearSelection() {
+  selectedExam.value = null
+  selectedQuestionIds.value = []
+  form.title = '本地测试考试'
+  form.description = '用于机房本地测试的在线考试。'
+  form.durationMinutes = 60
 }
 
 async function createExam() {
@@ -70,6 +88,24 @@ async function createExam() {
 async function selectExam(examId: number) {
   selectedExam.value = await getTeacherExam(examId)
   selectedQuestionIds.value = selectedExam.value.questions.map((question) => question.id)
+  syncForm(selectedExam.value)
+}
+
+async function saveExamInfo() {
+  if (!selectedExam.value) {
+    return
+  }
+  saving.value = true
+  try {
+    selectedExam.value = await updateTeacherExam(selectedExam.value.id, { ...form })
+    syncForm(selectedExam.value)
+    ElMessage.success('考试信息已保存')
+    await loadAll()
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '保存考试信息失败')
+  } finally {
+    saving.value = false
+  }
 }
 
 async function saveQuestions() {
@@ -113,8 +149,39 @@ async function publishExam() {
   }
 }
 
+async function deleteOrArchiveExam() {
+  if (!selectedExam.value) {
+    return
+  }
+  const action = selectedExam.value.status === 'draft' ? '删除草稿' : '归档考试'
+  try {
+    await ElMessageBox.confirm(`${action}后将不再作为可编辑考试显示。确认继续吗？`, action, {
+      confirmButtonText: action,
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    saving.value = true
+    await deleteTeacherExam(selectedExam.value.id)
+    clearSelection()
+    ElMessage.success(`${action}成功`)
+    await loadAll()
+  } catch (error) {
+    if (error instanceof Error) {
+      ElMessage.error(error.message)
+    }
+  } finally {
+    saving.value = false
+  }
+}
+
 function statusLabel(status: string) {
-  return status === 'published' ? '已发布' : '草稿'
+  if (status === 'published') {
+    return '已发布'
+  }
+  if (status === 'archived') {
+    return '已归档'
+  }
+  return '草稿'
 }
 
 function questionPreview(question: QuestionBankItem) {
@@ -130,29 +197,46 @@ onMounted(loadAll)
       <div>
         <p class="eyebrow">Exam Management</p>
         <h1>考试管理</h1>
-        <p class="summary">创建考试草稿，从题库选题并发布给学生。Phase 3 重点先完成考试发布与在线作答闭环。</p>
+        <p class="summary">创建和维护考试，草稿可编辑和删除，已发布考试可归档并保留历史答卷。</p>
       </div>
       <div class="header-actions">
         <el-button plain @click="router.push('/teacher')">返回工作台</el-button>
+        <el-button plain @click="clearSelection">新建模式</el-button>
         <el-button plain @click="loadAll">刷新</el-button>
       </div>
     </header>
 
     <section class="exam-layout">
       <article class="status-card exam-create-card">
-        <p class="eyebrow">Create</p>
-        <h2>新建考试</h2>
+        <p class="eyebrow">Exam</p>
+        <h2>{{ selectedExam ? '考试信息' : '新建考试' }}</h2>
         <el-form label-position="top">
           <el-form-item label="考试名称">
-            <el-input v-model="form.title" />
+            <el-input v-model="form.title" :disabled="!canEditExamInfo" />
           </el-form-item>
           <el-form-item label="考试说明">
-            <el-input v-model="form.description" type="textarea" :rows="3" />
+            <el-input
+              v-model="form.description"
+              type="textarea"
+              :rows="3"
+              :disabled="!canEditExamInfo"
+            />
           </el-form-item>
           <el-form-item label="时长（分钟）">
-            <el-input-number v-model="form.durationMinutes" :min="1" :max="600" />
+            <el-input-number
+              v-model="form.durationMinutes"
+              :min="1"
+              :max="600"
+              :disabled="!canEditExamInfo"
+            />
           </el-form-item>
-          <el-button type="primary" :loading="saving" @click="createExam">创建草稿</el-button>
+          <div class="action-list">
+            <el-button v-if="!selectedExam" type="primary" :loading="saving" @click="createExam">创建草稿</el-button>
+            <el-button v-else type="primary" :disabled="selectedExam.status !== 'draft'" :loading="saving" @click="saveExamInfo">保存信息</el-button>
+            <el-button v-if="selectedExam && selectedExam.status !== 'archived'" plain type="danger" :loading="saving" @click="deleteOrArchiveExam">
+              {{ selectedExam.status === 'draft' ? '删除草稿' : '归档考试' }}
+            </el-button>
+          </div>
         </el-form>
       </article>
 
@@ -187,14 +271,14 @@ onMounted(loadAll)
 
           <el-alert
             v-if="!canEditQuestions"
-            title="考试已发布，题目已锁定。"
+            title="考试已发布或归档，题目已锁定。"
             type="success"
             :closable="false"
             show-icon
           />
 
           <el-checkbox-group v-model="selectedQuestionIds" class="exam-question-picker" :disabled="!canEditQuestions">
-            <el-checkbox v-for="question in questions" :key="question.id" :label="question.id">
+            <el-checkbox v-for="question in questions" :key="question.id" :value="question.id">
               <span class="picker-question">
                 <strong>#{{ question.id }} {{ questionTypeLabels[question.questionType] ?? question.questionType }}</strong>
                 <span>{{ questionPreview(question) }}</span>
@@ -205,6 +289,7 @@ onMounted(loadAll)
           <div class="header-actions">
             <el-button :disabled="!canEditQuestions" :loading="saving" @click="saveQuestions">保存题目</el-button>
             <el-button type="primary" :disabled="!canEditQuestions" :loading="saving" @click="publishExam">发布考试</el-button>
+            <el-button plain type="danger" :disabled="!canArchive" :loading="saving" @click="deleteOrArchiveExam">归档考试</el-button>
           </div>
         </template>
       </article>

@@ -31,6 +31,7 @@ export interface ExamDetail extends ExamSummary {
   questions: ExamQuestion[]
   submissionId?: number
   submissionStartedAt?: string
+  remainingSeconds?: number
 }
 
 export interface CreateExamPayload {
@@ -63,6 +64,19 @@ export function updateTeacherExamQuestions(examId: number, questionIds: number[]
   return apiRequest<ExamDetail>(`/api/teacher/exams/${examId}/questions`, {
     method: 'POST',
     body: JSON.stringify({ questionIds }),
+  })
+}
+
+export function updateTeacherExam(examId: number, payload: CreateExamPayload) {
+  return apiRequest<ExamDetail>(`/api/teacher/exams/${examId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteTeacherExam(examId: number) {
+  return apiRequest<{ examId: number; status: string }>(`/api/teacher/exams/${examId}`, {
+    method: 'DELETE',
   })
 }
 

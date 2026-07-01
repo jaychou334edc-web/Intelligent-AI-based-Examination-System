@@ -15,10 +15,11 @@ public class RoleAccessInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         String path = request.getRequestURI();
-        UserRole requiredRole = requiredRole(path);
         boolean protectedAuthPath = path.equals("/api/auth/me") || path.equals("/api/auth/logout");
+        boolean protectedResourcePath = path.matches("/api/papers/\\d+/images/[^/]+");
+        UserRole requiredRole = protectedResourcePath ? null : requiredRole(path);
 
-        if (requiredRole == null && !protectedAuthPath) {
+        if (requiredRole == null && !protectedAuthPath && !protectedResourcePath) {
             return true;
         }
 

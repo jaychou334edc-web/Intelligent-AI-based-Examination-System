@@ -6,6 +6,7 @@ import com.aes.exam.auth.entity.UserEntity;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -75,6 +76,42 @@ public class JdbcUserRepository implements UserRepository {
         jdbcTemplate.update("""
             UPDATE users SET last_login_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
             """, lastLoginAt, userId);
+    }
+
+    @Override
+    public List<UserEntity> findAll() {
+        return jdbcTemplate.query("""
+                SELECT u.id, u.username, u.password_hash, u.role, u.status, p.real_name, u.last_login_at
+                FROM users u
+                LEFT JOIN user_profiles p ON p.user_id = u.id AND p.is_deleted = 0
+                WHERE u.is_deleted = 0
+                ORDER BY u.id ASC
+                """,
+            this::mapUser
+        );
+    }
+
+    @Override
+    public void updateUser(Long userId, UserRole role, UserStatus status, String realName) {
+        jdbcTemplate.update("""
+            UPDATE users
+            SET role = ?, status = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND is_deleted = 0
+            """, role.value(), status.value(), userId);
+        jdbcTemplate.update("""
+            UPDATE user_profiles
+            SET real_name = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE user_id = ? AND is_deleted = 0
+            """, realName, userId);
+    }
+
+    @Override
+    public void updatePassword(Long userId, String passwordHash) {
+        jdbcTemplate.update("""
+            UPDATE users
+            SET password_hash = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND is_deleted = 0
+            """, passwordHash, userId);
     }
 
     private UserEntity mapUser(ResultSet rs, int rowNum) throws SQLException {

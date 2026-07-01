@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -44,6 +45,15 @@ public class JdbcExamRepository implements ExamRepository {
             return statement;
         }, keyHolder);
         return keyHolder.getKey().longValue();
+    }
+
+    @Override
+    public void updateDraft(Long examId, String title, String description, Integer durationMinutes, Long teacherId) {
+        jdbcTemplate.update("""
+            UPDATE exams
+            SET title = ?, description = ?, duration_minutes = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ?
+            WHERE id = ? AND created_by = ? AND status = 'draft' AND is_deleted = 0
+            """, title, description, durationMinutes, teacherId, examId, teacherId);
     }
 
     @Override
@@ -102,6 +112,31 @@ public class JdbcExamRepository implements ExamRepository {
             UPDATE exams
             SET status = 'published', published_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, updated_by = ?
             WHERE id = ? AND created_by = ? AND status = 'draft' AND is_deleted = 0
+            """, teacherId, examId, teacherId);
+    }
+
+    @Override
+    public void deleteDraft(Long examId, Long teacherId) {
+        jdbcTemplate.update("""
+            DELETE FROM exam_questions
+            WHERE exam_id = ? AND EXISTS (
+                SELECT 1 FROM exams
+                WHERE id = ? AND created_by = ? AND status = 'draft'
+            )
+            """, examId, examId, teacherId);
+        jdbcTemplate.update("""
+            UPDATE exams
+            SET is_deleted = 1, updated_at = CURRENT_TIMESTAMP, updated_by = ?
+            WHERE id = ? AND created_by = ? AND status = 'draft' AND is_deleted = 0
+            """, teacherId, examId, teacherId);
+    }
+
+    @Override
+    public void archivePublished(Long examId, Long teacherId) {
+        jdbcTemplate.update("""
+            UPDATE exams
+            SET status = 'archived', updated_at = CURRENT_TIMESTAMP, updated_by = ?
+            WHERE id = ? AND created_by = ? AND status = 'published' AND is_deleted = 0
             """, teacherId, examId, teacherId);
     }
 
@@ -265,7 +300,8 @@ public class JdbcExamRepository implements ExamRepository {
             findExamQuestions(exam.id(), exam.submissionId(), includeAnswer),
             exam.submissionId(),
             exam.submissionStatus(),
-            exam.submissionStartedAt()
+            exam.submissionStartedAt(),
+            remainingSeconds(exam.durationMinutes(), exam.submissionStartedAt(), exam.submissionStatus())
         ));
     }
 
@@ -339,12 +375,22 @@ public class JdbcExamRepository implements ExamRepository {
             List.of(),
             submissionId,
             rs.getString("submission_status"),
-            toLocalDateTime(rs.getTimestamp("submission_started_at"))
+            toLocalDateTime(rs.getTimestamp("submission_started_at")),
+            null
         );
     }
 
     private LocalDateTime toLocalDateTime(Timestamp timestamp) {
         return timestamp == null ? null : timestamp.toLocalDateTime();
+    }
+
+    private Long remainingSeconds(Integer durationMinutes, LocalDateTime startedAt, String submissionStatus) {
+        if (durationMinutes == null || startedAt == null || "submitted".equals(submissionStatus)) {
+            return null;
+        }
+        LocalDateTime endsAt = startedAt.plusMinutes(durationMinutes);
+        long seconds = Duration.between(LocalDateTime.now(), endsAt).getSeconds();
+        return Math.max(0L, seconds);
     }
 
     private record SubmissionParticipant(Long examId, Long studentId, LocalDateTime submittedAt) {

@@ -16,6 +16,7 @@ public record ExamDetailVO(
     List<ExamQuestionVO> questions,
     Long submissionId,
     String submissionStatus,
-    LocalDateTime submissionStartedAt
+    LocalDateTime submissionStartedAt,
+    Long remainingSeconds
 ) {
 }

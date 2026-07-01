@@ -12,7 +12,7 @@ public class JacksonConfig {
     @Bean
     Jackson2ObjectMapperBuilderCustomizer jsonTimeCustomizer() {
         return builder -> builder
-            .timeZone(TimeZone.getTimeZone("UTC"))
+            .timeZone(TimeZone.getTimeZone("Asia/Shanghai"))
             .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     }
 }

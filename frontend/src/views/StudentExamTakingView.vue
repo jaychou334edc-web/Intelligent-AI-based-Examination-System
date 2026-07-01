@@ -18,6 +18,7 @@ const saving = ref(false)
 const loading = ref(false)
 const imageUrls = ref<Record<string, string>>({})
 const now = ref(Date.now())
+const countdownBase = ref<{ remainingSeconds: number; capturedAt: number } | null>(null)
 let timerId: number | undefined
 let autoSaveId: number | undefined
 let lastHiddenAt = 0
@@ -26,6 +27,10 @@ let eventQueue = Promise.resolve()
 const currentQuestion = computed(() => exam.value?.questions[currentIndex.value] ?? null)
 const isSubmitted = computed(() => exam.value?.submissionStatus === 'submitted')
 const remainingSeconds = computed(() => {
+  if (countdownBase.value) {
+    const elapsedSeconds = Math.floor((now.value - countdownBase.value.capturedAt) / 1000)
+    return Math.max(0, countdownBase.value.remainingSeconds - elapsedSeconds)
+  }
   if (!exam.value?.submissionStartedAt) {
     return exam.value ? exam.value.durationMinutes * 60 : 0
   }
@@ -57,6 +62,9 @@ async function loadExam() {
   loading.value = true
   try {
     exam.value = await getStudentExam(props.examId)
+    countdownBase.value = typeof exam.value.remainingSeconds === 'number'
+      ? { remainingSeconds: exam.value.remainingSeconds, capturedAt: Date.now() }
+      : null
     answers.value = Object.fromEntries(exam.value.questions.map((question) => [question.id, question.savedAnswer ?? '']))
     startCountdown()
     if (!isSubmitted.value) {

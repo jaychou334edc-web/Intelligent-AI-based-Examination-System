@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, type RouteLocationNormalized } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import RoleShellView from '../views/RoleShellView.vue'
+import AdminManagementView from '../views/AdminManagementView.vue'
 import TeacherPaperParsingView from '../views/TeacherPaperParsingView.vue'
 import TeacherQuestionBankView from '../views/TeacherQuestionBankView.vue'
 import TeacherExamManagementView from '../views/TeacherExamManagementView.vue'
@@ -41,6 +42,12 @@ const router = createRouter({
       component: RoleShellView,
       meta: { requiresAuth: true, role: 'admin' },
       props: { role: 'admin' },
+    },
+    {
+      path: '/admin/manage',
+      name: 'admin-manage',
+      component: AdminManagementView,
+      meta: { requiresAuth: true, role: 'admin' },
     },
     {
       path: '/teacher',

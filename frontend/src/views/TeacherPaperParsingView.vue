@@ -13,7 +13,7 @@ const questions = ref<ReviewQuestion[]>([])
 const rawText = ref('')
 const loading = ref(false)
 const importLoading = ref(false)
-const imageUrls = ref<Record<string, string>>({})
+const imageUrls = ref<Record<string, string | null>>({})
 
 const form = reactive({
   title: '本地测试试卷',
@@ -82,13 +82,21 @@ function removeOption(question: ReviewQuestion, optionIndex: number) {
 }
 
 function clearImageUrls() {
-  Object.values(imageUrls.value).forEach((url) => URL.revokeObjectURL(url))
+  Object.values(imageUrls.value).forEach((url) => {
+    if (url) {
+      URL.revokeObjectURL(url)
+    }
+  })
   imageUrls.value = {}
 }
 
 async function ensureImageUrl(imageId: string) {
-  if (!currentPaper.value || imageUrls.value[imageId]) {
+  if (!currentPaper.value || Object.prototype.hasOwnProperty.call(imageUrls.value, imageId)) {
     return
+  }
+  imageUrls.value = {
+    ...imageUrls.value,
+    [imageId]: '',
   }
   try {
     imageUrls.value = {
@@ -98,14 +106,18 @@ async function ensureImageUrl(imageId: string) {
   } catch {
     imageUrls.value = {
       ...imageUrls.value,
-      [imageId]: '',
+      [imageId]: null,
     }
   }
 }
 
 function imageUrl(imageId: string) {
   void ensureImageUrl(imageId)
-  return imageUrls.value[imageId] ?? ''
+  return imageUrls.value[imageId] || ''
+}
+
+function imageFailed(imageId: string) {
+  return imageUrls.value[imageId] === null
 }
 
 function stemParts(text: string) {
@@ -257,6 +269,7 @@ async function submitImport() {
             <template v-for="(part, partIndex) in stemParts(question.stem)" :key="partIndex">
               <p v-if="part.type === 'text'">{{ part.value }}</p>
               <img v-else-if="imageUrl(part.value)" :src="imageUrl(part.value)" :alt="part.value" />
+              <span v-else-if="imageFailed(part.value)" class="image-loading">图片加载失败：{{ part.value }}</span>
               <span v-else class="image-loading">图片加载中：{{ part.value }}</span>
             </template>
           </div>

@@ -11,8 +11,8 @@ const formRef = ref<FormInstance>()
 const errorMessage = ref('')
 
 const form = reactive<LoginRequest>({
-  username: 'admin',
-  password: 'Admin@123456',
+  username: '',
+  password: '',
 })
 
 const rules: FormRules<LoginRequest> = {

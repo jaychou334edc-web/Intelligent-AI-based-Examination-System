@@ -7,6 +7,7 @@ import com.aes.exam.common.security.SecurityContextHolder;
 import com.aes.exam.exam.dto.CreateExamRequest;
 import com.aes.exam.exam.dto.SaveAnswerRequest;
 import com.aes.exam.exam.dto.SubmitExamRequest;
+import com.aes.exam.exam.dto.UpdateExamRequest;
 import com.aes.exam.exam.dto.UpdateExamQuestionsRequest;
 import com.aes.exam.exam.repository.ExamRepository;
 import com.aes.exam.exam.vo.ExamDetailVO;
@@ -46,9 +47,40 @@ public class ExamService {
         return examRepository.findTeacherExams(currentUser().userId());
     }
 
+    @Transactional
+    public ExamDetailVO update(Long examId, UpdateExamRequest request) {
+        SecurityContext context = currentUser();
+        if (!examRepository.isDraftOwnedByTeacher(examId, context.userId())) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "只有草稿考试可以修改基本信息");
+        }
+        examRepository.updateDraft(
+            examId,
+            request.title().trim(),
+            StringUtils.hasText(request.description()) ? request.description().trim() : null,
+            request.durationMinutes(),
+            context.userId()
+        );
+        return teacherDetail(examId);
+    }
+
     public ExamDetailVO teacherDetail(Long examId) {
         return examRepository.findTeacherExamDetail(examId, currentUser().userId())
             .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "考试不存在"));
+    }
+
+    @Transactional
+    public void deleteOrArchive(Long examId) {
+        SecurityContext context = currentUser();
+        ExamDetailVO detail = teacherDetail(examId);
+        if ("draft".equals(detail.status())) {
+            examRepository.deleteDraft(examId, context.userId());
+            return;
+        }
+        if ("published".equals(detail.status())) {
+            examRepository.archivePublished(examId, context.userId());
+            return;
+        }
+        throw new BusinessException(ErrorCode.BUSINESS_ERROR, "考试已经归档");
     }
 
     @Transactional
@@ -104,7 +136,8 @@ public class ExamService {
                 value.questions(),
                 submissionId,
                 value.submissionStatus(),
-                value.submissionStartedAt()
+                value.submissionStartedAt(),
+                value.remainingSeconds()
             ))
             .orElse(detail);
     }

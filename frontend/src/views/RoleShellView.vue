@@ -36,7 +36,7 @@ const roleMeta: Record<UserRole, { title: string; subtitle: string; tone: string
     subtitle: '查看考试安排，进入在线答题，并查询个人成绩。',
     tone: 'amber',
     label: '学生',
-    actions: ['考试列表', '在线答题', '成绩查询'],
+    actions: ['考试列表', '继续考试', '成绩查询'],
   },
 }
 
@@ -44,6 +44,9 @@ const currentMeta = computed(() => roleMeta[props.role])
 const displayTitle = computed(() => shell.value?.title ?? currentMeta.value.title)
 
 function actionTarget(action: string) {
+  if (props.role === 'admin' && ['用户管理', '权限审计', '系统配置'].includes(action)) {
+    return `/admin/manage?tab=${encodeURIComponent(action)}`
+  }
   if (props.role === 'teacher' && action === 'AI 题库导入') {
     return '/teacher/papers'
   }
@@ -59,7 +62,7 @@ function actionTarget(action: string) {
   if (props.role === 'teacher' && action === '监考分析') {
     return '/teacher/monitoring'
   }
-  if (props.role === 'student' && action === '考试列表') {
+  if (props.role === 'student' && (action === '考试列表' || action === '继续考试')) {
     return '/student/exams'
   }
   if (props.role === 'student' && action === '成绩查询') {
