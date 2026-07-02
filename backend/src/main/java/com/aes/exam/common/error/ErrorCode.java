@@ -8,6 +8,7 @@ public enum ErrorCode {
     UNAUTHORIZED("UNAUTHORIZED", "用户未登录或登录已失效", HttpStatus.UNAUTHORIZED),
     FORBIDDEN("FORBIDDEN", "没有权限执行该操作", HttpStatus.FORBIDDEN),
     NOT_FOUND("NOT_FOUND", "请求资源不存在", HttpStatus.NOT_FOUND),
+    METHOD_NOT_ALLOWED("METHOD_NOT_ALLOWED", "请求方法不被支持", HttpStatus.METHOD_NOT_ALLOWED),
     BUSINESS_ERROR("BUSINESS_ERROR", "业务处理失败", HttpStatus.BAD_REQUEST),
     INTERNAL_SERVER_ERROR("INTERNAL_SERVER_ERROR", "系统内部错误", HttpStatus.INTERNAL_SERVER_ERROR);
 

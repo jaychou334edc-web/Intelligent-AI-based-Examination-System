@@ -98,7 +98,7 @@ onMounted(loadExams)
         <p class="summary">查看考试行为时间线、成绩分布、题目得分率、难度与知识点统计。</p>
       </div>
       <div class="header-actions">
-        <el-button plain @click="router.push('/teacher')">返回工作台</el-button>
+        <el-button plain @click="router.push('/teacher/dashboard')">返回工作台</el-button>
         <el-button plain @click="loadExams">刷新</el-button>
       </div>
     </header>

@@ -69,6 +69,24 @@ class GlobalExceptionHandlerTest {
             .andExpect(jsonPath("$.message", is("系统内部错误")));
     }
 
+    @Test
+    void missingApiResourceUsesUnifiedNotFoundResponse() throws Exception {
+        mockMvc.perform(get("/api/not-existing-resource"))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.success", is(false)))
+            .andExpect(jsonPath("$.code", is("NOT_FOUND")))
+            .andExpect(jsonPath("$.message", is("请求资源不存在")));
+    }
+
+    @Test
+    void unsupportedHttpMethodUsesUnifiedMethodNotAllowedResponse() throws Exception {
+        mockMvc.perform(get("/api/auth/login"))
+            .andExpect(status().isMethodNotAllowed())
+            .andExpect(jsonPath("$.success", is(false)))
+            .andExpect(jsonPath("$.code", is("METHOD_NOT_ALLOWED")))
+            .andExpect(jsonPath("$.message", is("请求方法不被支持")));
+    }
+
     @RestController
     @RequestMapping("/test/failures")
     static class FailureController {

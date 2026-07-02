@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -248,6 +249,112 @@ class ExamFlowTest {
             .andExpect(jsonPath("$.data.answers[0].isCorrect", is(true)));
     }
 
+    @Test
+    void publishedExamScheduleCanBeUpdated() throws Exception {
+        String teacherToken = login("teacher", "Teacher@123456");
+        Long questionId = createQuestion();
+
+        String createResponse = mockMvc.perform(post("/api/teacher/exams")
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"title":"发布时间修正测试","description":"错误设置到明天","durationMinutes":30,
+                     "startTime":"2099-01-01T09:00:00","endTime":"2099-01-01T10:00:00"}
+                    """))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+        Long examId = objectMapper.readTree(createResponse).path("data").path("id").asLong();
+
+        mockMvc.perform(post("/api/teacher/exams/" + examId + "/questions")
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"questionIds\":[" + questionId + "]}"))
+            .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/teacher/exams/" + examId + "/publish")
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status", is("published")));
+
+        mockMvc.perform(put("/api/teacher/exams/" + examId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"title":"发布时间修正测试","description":"修正为立即可考","durationMinutes":45,
+                     "startTime":null,"endTime":null}
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status", is("published")))
+            .andExpect(jsonPath("$.data.durationMinutes", is(45)))
+            .andExpect(jsonPath("$.data.startTime", nullValue()))
+            .andExpect(jsonPath("$.data.endTime", nullValue()));
+    }
+
+    @Test
+    void objectiveQuestionWithoutCorrectAnswerFallsBackToManualReview() throws Exception {
+        String teacherToken = login("teacher", "Teacher@123456");
+        Long questionId = createQuestionWithoutAnswer();
+
+        String createResponse = mockMvc.perform(post("/api/teacher/exams")
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"title":"缺答案选择题测试","description":"manual fallback","durationMinutes":30}
+                    """))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+        Long examId = objectMapper.readTree(createResponse).path("data").path("id").asLong();
+
+        mockMvc.perform(post("/api/teacher/exams/" + examId + "/questions")
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"questionIds\":[" + questionId + "]}"))
+            .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/teacher/exams/" + examId + "/publish")
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken)))
+            .andExpect(status().isOk());
+
+        String studentToken = login("student", "Student@123456");
+
+        mockMvc.perform(get("/api/student/exams/" + examId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(studentToken)))
+            .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/student/exams/" + examId + "/submit")
+                .header(HttpHeaders.AUTHORIZATION, bearer(studentToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"answers\":[{\"questionId\":" + questionId + ",\"answer\":\"B\"}]}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.totalScore", is(0.0)));
+
+        String teacherDetail = mockMvc.perform(get("/api/teacher/grading/submissions")
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken)))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+        Long submissionId = objectMapper.readTree(teacherDetail).path("data").get(0).path("submissionId").asLong();
+
+        mockMvc.perform(get("/api/teacher/grading/submissions/" + submissionId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.answers[0].gradingStatus", is("pending")))
+            .andExpect(jsonPath("$.data.answers[0].correctAnswer", nullValue()));
+
+        mockMvc.perform(post("/api/teacher/grading/submissions/" + submissionId + "/answers")
+                .header(HttpHeaders.AUTHORIZATION, bearer(teacherToken))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"questionId\":" + questionId + ",\"score\":2,\"teacherComment\":\"人工复核给分\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.totalScore", is(2.0)))
+            .andExpect(jsonPath("$.data.answers[0].gradingStatus", is("manual_graded")));
+    }
+
 
     private Long createQuestion() {
         Long teacherId = jdbcTemplate.queryForObject("SELECT id FROM users WHERE username = 'teacher'", Long.class);
@@ -265,6 +372,26 @@ class ExamFlowTest {
         jdbcTemplate.update("""
             INSERT INTO question_answers (question_id, answer_text, match_rule, created_at, updated_at)
             VALUES (?, 'A', 'exact', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            """, questionId);
+        return questionId;
+    }
+
+    private Long createQuestionWithoutAnswer() {
+        Long teacherId = jdbcTemplate.queryForObject("SELECT id FROM users WHERE username = 'teacher'", Long.class);
+        jdbcTemplate.update("""
+            INSERT INTO questions (question_type, stem, analysis, score, difficulty, knowledge_point, status,
+                                   version, created_at, updated_at, created_by, updated_by, is_deleted)
+            VALUES ('single_choice', '这道选择题缺少标准答案，教师需要复核。', '', ?, 'normal', 'Manual Review', 'active',
+                    1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, 0)
+            """, BigDecimal.valueOf(2), teacherId, teacherId);
+        Long questionId = jdbcTemplate.queryForObject("SELECT MAX(id) FROM questions", Long.class);
+        jdbcTemplate.update("""
+            INSERT INTO question_options (question_id, option_key, option_text, is_correct, sort_order, created_at, updated_at)
+            VALUES (?, 'A', '选项 A', 0, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            """, questionId);
+        jdbcTemplate.update("""
+            INSERT INTO question_options (question_id, option_key, option_text, is_correct, sort_order, created_at, updated_at)
+            VALUES (?, 'B', '选项 B', 0, 2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             """, questionId);
         return questionId;
     }

@@ -47,11 +47,18 @@ function runtimeStatus(exam: ExamSummary) {
   return statusLabel(exam.submissionStatus)
 }
 
-function actionLabel(status?: string) {
-  if (status === 'submitted') {
+function actionLabel(exam: ExamSummary) {
+  const runtime = runtimeStatus(exam)
+  if (runtime === '已提交') {
     return '查看考试'
   }
-  if (status === 'in_progress') {
+  if (runtime === '已结束') {
+    return '考试已结束'
+  }
+  if (runtime === '未开始') {
+    return '等待开始'
+  }
+  if (exam.submissionStatus === 'in_progress') {
     return '继续答题'
   }
   return '进入考试'
@@ -119,7 +126,7 @@ onMounted(loadExams)
         </div>
         <p class="raw-hint">{{ windowText(exam) }}</p>
         <el-button type="primary" :icon="Tickets" :disabled="!canEnter(exam)" @click="router.push(`/student/exams/${exam.id}`)">
-          {{ actionLabel(exam.submissionStatus) }}
+          {{ actionLabel(exam) }}
         </el-button>
       </article>
     </section>

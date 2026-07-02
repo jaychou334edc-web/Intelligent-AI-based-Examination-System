@@ -33,6 +33,16 @@ function scoreText(value?: number) {
   return value == null ? '待评分' : `${value} 分`
 }
 
+function gradingStatusLabel(status: string) {
+  if (status === 'auto_graded') {
+    return '系统自动评分'
+  }
+  if (status === 'manual_graded') {
+    return '教师已评分'
+  }
+  return '待教师评阅'
+}
+
 onMounted(loadResults)
 </script>
 
@@ -101,7 +111,7 @@ onMounted(loadResults)
               <div class="bank-meta">
                 <span>我的答案：{{ answer.studentAnswer || '未作答' }}</span>
                 <span>标准答案：{{ answer.correctAnswer || '教师评阅' }}</span>
-                <span>状态：{{ answer.gradingStatus }}</span>
+                <span>状态：{{ gradingStatusLabel(answer.gradingStatus) }}</span>
               </div>
               <p v-if="answer.teacherComment" class="bank-analysis">教师评语：{{ answer.teacherComment }}</p>
             </section>

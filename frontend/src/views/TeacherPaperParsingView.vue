@@ -292,7 +292,7 @@ async function submitImport() {
       </div>
       <div class="header-actions">
         <el-button plain @click="router.push('/teacher/questions')">查看题库</el-button>
-        <el-button plain @click="router.push('/teacher')">返回工作台</el-button>
+        <el-button plain @click="router.push('/teacher/dashboard')">返回工作台</el-button>
       </div>
     </header>
 

@@ -57,6 +57,30 @@ function needsManual(answer: GradingAnswer) {
   return answer.gradingStatus === 'pending' || answer.questionType === 'fill_blank' || answer.questionType === 'subjective'
 }
 
+function canRequestAiSuggestion(answer: GradingAnswer) {
+  return answer.gradingStatus === 'pending' || answer.questionType === 'fill_blank' || answer.questionType === 'subjective'
+}
+
+function gradingStatusLabel(answer: GradingAnswer) {
+  if (answer.gradingStatus === 'auto_graded') {
+    return answer.isCorrect == null ? '系统自动评分' : answer.isCorrect ? '系统判定正确' : '系统判定错误'
+  }
+  if (answer.gradingStatus === 'manual_graded') {
+    return '教师已评分'
+  }
+  return '待人工复核'
+}
+
+function correctAnswerText(answer: GradingAnswer) {
+  if (answer.correctAnswer) {
+    return answer.correctAnswer
+  }
+  if (answer.gradingStatus === 'pending') {
+    return '缺少标准答案，需教师人工复核'
+  }
+  return '人工判断'
+}
+
 async function saveGrade(answer: GradingAnswer) {
   if (!current.value) {
     return
@@ -126,10 +150,10 @@ onMounted(loadSubmissions)
       <div>
         <p class="eyebrow">Grading</p>
         <h1>阅卷管理</h1>
-        <p class="summary">查看学生提交记录，客观题已自动评分，填空题和主观题由教师确认最终分数。</p>
+        <p class="summary">查看学生提交记录，客观题优先自动评分；缺少标准答案或无法判定时转入人工复核，教师可手动评分。</p>
       </div>
       <div class="header-actions">
-        <el-button plain @click="router.push('/teacher')">返回工作台</el-button>
+        <el-button plain @click="router.push('/teacher/dashboard')">返回工作台</el-button>
         <el-button plain @click="loadSubmissions">刷新</el-button>
       </div>
     </header>
@@ -179,8 +203,8 @@ onMounted(loadSubmissions)
               </div>
               <div class="bank-meta">
                 <span>学生答案：{{ answer.studentAnswer || '未作答' }}</span>
-                <span>标准答案：{{ answer.correctAnswer || '人工判断' }}</span>
-                <span>状态：{{ answer.gradingStatus }}</span>
+                <span>标准答案：{{ correctAnswerText(answer) }}</span>
+                <span>状态：{{ gradingStatusLabel(answer) }}</span>
               </div>
 
               <div v-if="needsManual(answer)" class="manual-grade-row">
@@ -189,11 +213,11 @@ onMounted(loadSubmissions)
                 <el-button type="primary" :loading="grading" @click="saveGrade(answer)">保存评分</el-button>
               </div>
 
-              <div v-if="needsManual(answer)" class="ai-grade-panel">
+              <div v-if="canRequestAiSuggestion(answer)" class="ai-grade-panel">
                 <div class="ai-grade-heading">
                   <div>
                     <p class="eyebrow">AI Suggestion</p>
-                    <h2>主观题 AI 辅助评分</h2>
+                    <h2>{{ answer.gradingStatus === 'pending' ? 'AI 辅助复核' : '主观题 AI 辅助评分' }}</h2>
                   </div>
                   <div class="header-actions">
                     <el-button plain :loading="suggesting[answer.questionId]" @click="requestAiSuggestion(answer)">

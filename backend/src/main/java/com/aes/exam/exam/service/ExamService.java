@@ -61,22 +61,35 @@ public class ExamService {
     @Transactional
     public ExamDetailVO update(Long examId, UpdateExamRequest request) {
         SecurityContext context = currentUser();
-        if (!examRepository.isDraftOwnedByTeacher(examId, context.userId())) {
-            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "只有草稿考试可以修改基本信息");
+        ExamDetailVO detail = teacherDetail(examId);
+        if (!examRepository.isEditableOwnedByTeacher(examId, context.userId())) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "只有草稿或已发布考试可以修改基本信息");
         }
         validateSchedule(request.startTime(), request.endTime());
-        Long courseId = resolveCourseId(request.courseId(), request.classId());
-        examRepository.updateDraft(
-            examId,
-            request.title().trim(),
-            StringUtils.hasText(request.description()) ? request.description().trim() : null,
-            request.durationMinutes(),
-            courseId,
-            request.classId(),
-            request.startTime(),
-            request.endTime(),
-            context.userId()
-        );
+        if ("draft".equals(detail.status())) {
+            Long courseId = resolveCourseId(request.courseId(), request.classId());
+            examRepository.updateDraft(
+                examId,
+                request.title().trim(),
+                StringUtils.hasText(request.description()) ? request.description().trim() : null,
+                request.durationMinutes(),
+                courseId,
+                request.classId(),
+                request.startTime(),
+                request.endTime(),
+                context.userId()
+            );
+        } else {
+            examRepository.updateEditableInfo(
+                examId,
+                request.title().trim(),
+                StringUtils.hasText(request.description()) ? request.description().trim() : null,
+                request.durationMinutes(),
+                request.startTime(),
+                request.endTime(),
+                context.userId()
+            );
+        }
         return teacherDetail(examId);
     }
 

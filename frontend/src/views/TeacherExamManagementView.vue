@@ -45,7 +45,8 @@ const questionTypeLabels: Record<string, string> = {
 
 const canEditQuestions = computed(() => selectedExam.value?.status === 'draft')
 const canArchive = computed(() => selectedExam.value?.status === 'published')
-const canEditExamInfo = computed(() => !selectedExam.value || selectedExam.value.status === 'draft')
+const canEditExamInfo = computed(() => !selectedExam.value || selectedExam.value.status === 'draft' || selectedExam.value.status === 'published')
+const canEditAudience = computed(() => !selectedExam.value || selectedExam.value.status === 'draft')
 
 async function loadAll() {
   loading.value = true
@@ -280,10 +281,10 @@ onMounted(loadAll)
       <div>
         <p class="eyebrow">Exam Management</p>
         <h1>考试管理</h1>
-        <p class="summary">创建和维护考试，草稿可编辑和删除，已发布考试可归档并保留历史答卷。</p>
+        <p class="summary">创建和维护考试，草稿可调整组卷；已发布考试可继续修正名称、说明、时长和考试时间窗口。</p>
       </div>
       <div class="header-actions">
-        <el-button plain @click="router.push('/teacher')">返回工作台</el-button>
+        <el-button plain @click="router.push('/teacher/dashboard')">返回工作台</el-button>
         <el-button plain @click="clearSelection">新建模式</el-button>
         <el-button plain @click="loadAll">刷新</el-button>
       </div>
@@ -314,7 +315,7 @@ onMounted(loadAll)
             />
           </el-form-item>
           <el-form-item label="目标班级">
-            <el-select v-model="form.classId" clearable placeholder="不选择则发布给全部学生" :disabled="!canEditExamInfo">
+            <el-select v-model="form.classId" clearable placeholder="不选择则发布给全部学生" :disabled="!canEditAudience">
               <el-option
                 v-for="item in classes"
                 :key="item.id"
@@ -343,7 +344,7 @@ onMounted(loadAll)
           </el-form-item>
           <div class="action-list">
             <el-button v-if="!selectedExam" type="primary" :loading="saving" @click="createExam">创建草稿</el-button>
-            <el-button v-else type="primary" :disabled="selectedExam.status !== 'draft'" :loading="saving" @click="saveExamInfo">保存信息</el-button>
+            <el-button v-else type="primary" :disabled="!canEditExamInfo" :loading="saving" @click="saveExamInfo">保存信息</el-button>
             <el-button v-if="selectedExam && selectedExam.status !== 'archived'" plain type="danger" :loading="saving" @click="deleteOrArchiveExam">
               {{ selectedExam.status === 'draft' ? '删除草稿' : '归档考试' }}
             </el-button>

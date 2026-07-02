@@ -72,11 +72,14 @@ const recentTeacherExams = computed(() => teacherExams.value.slice(0, 4))
 const recentTeacherQuestions = computed(() => teacherQuestions.value.slice(0, 5))
 
 function actionTarget(action: string) {
-  if (props.role === 'admin' && ['用户管理', '课程班级', '权限审计', '系统配置'].includes(action)) {
+  if (props.role === 'admin' && action === '课程班级') {
+    return '/admin/education'
+  }
+  if (props.role === 'admin' && ['用户管理', '权限审计', '系统配置'].includes(action)) {
     return `/admin/manage?tab=${encodeURIComponent(action)}`
   }
   if (props.role === 'teacher' && action === 'AI 题库导入') {
-    return '/teacher/papers'
+    return '/teacher/ai-import'
   }
   if (props.role === 'teacher' && action === '题库维护') {
     return '/teacher/questions'
@@ -153,8 +156,8 @@ onMounted(loadShell)
         <span>教师工作台</span>
       </div>
       <nav class="teacher-nav">
-        <button class="active" type="button" @click="router.push('/teacher')"><el-icon><Odometer /></el-icon>工作台</button>
-        <button type="button" @click="router.push('/teacher/papers')"><el-icon><DocumentAdd /></el-icon>AI 导入</button>
+        <button class="active" type="button" @click="router.push('/teacher/dashboard')"><el-icon><Odometer /></el-icon>工作台</button>
+        <button type="button" @click="router.push('/teacher/ai-import')"><el-icon><DocumentAdd /></el-icon>AI 导入</button>
         <button type="button" @click="router.push('/teacher/questions')"><el-icon><Collection /></el-icon>题库管理</button>
         <button type="button" @click="router.push('/teacher/exams')"><el-icon><Tickets /></el-icon>考试管理</button>
         <button type="button" @click="router.push('/teacher/grading')"><el-icon><EditPen /></el-icon>阅卷中心</button>
@@ -176,7 +179,7 @@ onMounted(loadShell)
           <p class="summary">集中处理 AI 导题、题库维护、考试发布、阅卷和监考分析。</p>
         </div>
         <div class="header-actions">
-          <el-button type="primary" :icon="DocumentAdd" @click="router.push('/teacher/papers')">AI 导入题目</el-button>
+          <el-button type="primary" :icon="DocumentAdd" @click="router.push('/teacher/ai-import')">AI 导入题目</el-button>
           <el-button plain :icon="Tickets" @click="router.push('/teacher/exams')">创建考试</el-button>
         </div>
       </header>
@@ -245,7 +248,7 @@ onMounted(loadShell)
           <p class="eyebrow">Tasks</p>
           <h2>待处理任务</h2>
           <div class="task-stack">
-            <button type="button" @click="router.push('/teacher/papers')">导入新试卷并审核 AI 解析结果</button>
+            <button type="button" @click="router.push('/teacher/ai-import')">导入新试卷并审核 AI 解析结果</button>
             <button type="button" @click="router.push('/teacher/questions')">维护题库知识点、分值和答案</button>
             <button type="button" @click="router.push('/teacher/grading')">处理主观题人工阅卷</button>
             <button type="button" @click="router.push('/teacher/analytics')">查看成绩统计和知识点分析</button>

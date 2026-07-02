@@ -41,6 +41,18 @@ public interface ExamRepository {
 
     boolean isDraftOwnedByTeacher(Long examId, Long teacherId);
 
+    boolean isEditableOwnedByTeacher(Long examId, Long teacherId);
+
+    void updateEditableInfo(
+        Long examId,
+        String title,
+        String description,
+        Integer durationMinutes,
+        LocalDateTime startTime,
+        LocalDateTime endTime,
+        Long teacherId
+    );
+
     void replaceQuestions(Long examId, List<Long> questionIds);
 
     void publish(Long examId, Long teacherId);

@@ -514,3 +514,43 @@ UI is considered successful when:
 - Student can complete exams without distraction.
 - No core action requires explanation to use.
 - All actions are discoverable.
+
+# 17. UI Refactor Implementation Notes
+
+本轮 UI 重构已经落地三条核心信息架构：
+
+- 教师工作台：`/teacher/dashboard`
+- AI 题库导入流程：`/teacher/ai-import`
+- 管理员课程班级管理：`/admin/education`
+
+旧入口兼容策略：
+
+- `/teacher` 自动重定向到 `/teacher/dashboard`
+- `/teacher/papers` 自动重定向到 `/teacher/ai-import`
+
+教师端设计重点：
+
+- 以“当前教学任务”组织首页，而不是简单功能菜单。
+- 工作台展示待阅卷、缺答案题目、进行中考试、题库总量。
+- 快捷入口保留 AI 导入、题库、考试、阅卷等高频任务。
+- 最近考试表使用可读时间格式，避免直接展示后端 `T` 分隔时间。
+
+AI 导入设计重点：
+
+- 页面分为文件上传、AI 解析中、教师审核三个阶段。
+- 解析过程显示进度、日志、题型统计和文档结构预览。
+- 教师审核区支持逐题选择、编辑、删除、批量通过和提交入库。
+- 图片保持 `[IMG:image_x]` 语义，并在可用时渲染真实图片。
+
+管理员教务设计重点：
+
+- 用课程、班级、学生三个面板组织基础资料。
+- 考试发布时可复用班级数据，逐步支撑真实教学组织结构。
+- 不新增无后端支撑的假功能，避免演示时出现不可用入口。
+
+学生端设计重点：
+
+- 考试列表按时间窗口和提交状态显示清晰动作。
+- 未开始显示“等待开始”，已结束显示“考试已结束”，已提交显示“查看考试”。
+- 在线答题保持逐题呈现，选择题用按钮，填空和主观题用文本框。
+- 成绩页使用中文评分状态，避免暴露 `auto_graded` 等内部状态值。

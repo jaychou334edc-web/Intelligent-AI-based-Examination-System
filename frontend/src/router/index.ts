@@ -2,7 +2,9 @@ import { createRouter, createWebHistory, type RouteLocationNormalized } from 'vu
 import LoginView from '../views/LoginView.vue'
 import RoleShellView from '../views/RoleShellView.vue'
 import AdminManagementView from '../views/AdminManagementView.vue'
-import TeacherPaperParsingView from '../views/TeacherPaperParsingView.vue'
+import TeacherDashboardView from '../views/TeacherDashboardView.vue'
+import AIImportPage from '../views/AIImportPage.vue'
+import AdminEducationView from '../views/AdminEducationView.vue'
 import TeacherQuestionBankView from '../views/TeacherQuestionBankView.vue'
 import TeacherExamManagementView from '../views/TeacherExamManagementView.vue'
 import StudentExamListView from '../views/StudentExamListView.vue'
@@ -52,16 +54,33 @@ const router = createRouter({
       meta: { requiresAuth: true, role: 'admin' },
     },
     {
+      path: '/admin/education',
+      name: 'admin-education',
+      component: AdminEducationView,
+      meta: { requiresAuth: true, role: 'admin' },
+    },
+    {
       path: '/teacher',
       name: 'teacher',
-      component: RoleShellView,
+      redirect: '/teacher/dashboard',
       meta: { requiresAuth: true, role: 'teacher' },
-      props: { role: 'teacher' },
+    },
+    {
+      path: '/teacher/dashboard',
+      name: 'teacher-dashboard',
+      component: TeacherDashboardView,
+      meta: { requiresAuth: true, role: 'teacher' },
     },
     {
       path: '/teacher/papers',
       name: 'teacher-papers',
-      component: TeacherPaperParsingView,
+      redirect: '/teacher/ai-import',
+      meta: { requiresAuth: true, role: 'teacher' },
+    },
+    {
+      path: '/teacher/ai-import',
+      name: 'teacher-ai-import',
+      component: AIImportPage,
       meta: { requiresAuth: true, role: 'teacher' },
     },
     {

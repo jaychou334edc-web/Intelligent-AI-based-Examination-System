@@ -83,7 +83,7 @@ onMounted(loadExams)
         <p class="summary">按考试查看提交情况、成绩分布、及格率、知识点掌握情况和题目得分率。</p>
       </div>
       <div class="header-actions">
-        <el-button plain :icon="Back" @click="router.push('/teacher')">返回工作台</el-button>
+        <el-button plain :icon="Back" @click="router.push('/teacher/dashboard')">返回工作台</el-button>
         <el-button plain :icon="Refresh" @click="loadExams">刷新</el-button>
       </div>
     </header>

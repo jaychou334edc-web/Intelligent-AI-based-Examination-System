@@ -51,6 +51,19 @@ public class JdbcGradingRepository implements GradingRepository {
 
         for (AnswerForGrading answer : answers) {
             if (isAutoGradable(answer.questionType())) {
+                if (!hasCorrectAnswer(answer)) {
+                    upsertSubmissionAnswer(answer.submissionId(), answer.questionId(), answer.studentAnswer(), null, null);
+                    upsertGradingRecord(
+                        answer.submissionId(),
+                        answer.questionId(),
+                        null,
+                        null,
+                        BigDecimal.ZERO,
+                        "缺少标准答案，系统无法自动判分，请教师人工复核。",
+                        "pending"
+                    );
+                    continue;
+                }
                 boolean correct = isAnswerCorrect(answer);
                 BigDecimal score = correct ? answer.maxScore() : BigDecimal.ZERO;
                 upsertSubmissionAnswer(answer.submissionId(), answer.questionId(), answer.studentAnswer(), correct, score);
@@ -304,6 +317,10 @@ public class JdbcGradingRepository implements GradingRepository {
             || "multiple_choice".equals(questionType)
             || "true_false".equals(questionType)
             || ("fill_blank".equals(questionType) && aesProperties.getGrading().isAutoGradeFillBlank());
+    }
+
+    private boolean hasCorrectAnswer(AnswerForGrading answer) {
+        return answer.correctAnswer() != null && !answer.correctAnswer().isBlank();
     }
 
     private boolean isAnswerCorrect(AnswerForGrading answer) {

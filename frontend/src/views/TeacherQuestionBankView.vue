@@ -288,9 +288,9 @@ onBeforeUnmount(clearImageUrls)
         <p class="summary">按题型、知识点和来源试卷快速筛选题目，支持预览、编辑、删除和批量选题。</p>
       </div>
       <div class="header-actions">
-        <el-button plain @click="router.push('/teacher/papers')">AI 导入</el-button>
+        <el-button plain @click="router.push('/teacher/ai-import')">AI 导入</el-button>
         <el-button plain @click="loadQuestions">刷新</el-button>
-        <el-button plain @click="router.push('/teacher')">返回工作台</el-button>
+        <el-button plain @click="router.push('/teacher/dashboard')">返回工作台</el-button>
       </div>
     </header>
 

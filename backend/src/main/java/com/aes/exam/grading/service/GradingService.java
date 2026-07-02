@@ -89,8 +89,8 @@ public class GradingService {
             .filter(value -> value.questionId().equals(questionId))
             .findFirst()
             .orElseThrow(() -> new BusinessException(ErrorCode.BUSINESS_ERROR, "题目不属于当前提交记录"));
-        if (!isSubjectiveLike(answer)) {
-            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "仅主观题、代码题和人工题支持 AI 辅助评分");
+        if (!canUseAiSuggestion(answer)) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "仅主观题、填空题和待人工复核题支持 AI 辅助评分");
         }
 
         AiGradeSuggestionVO suggestion = generateSuggestion(submission, answer);
@@ -122,7 +122,12 @@ public class GradingService {
 
     private boolean isSubjectiveLike(GradingAnswerVO answer) {
         return "subjective".equals(answer.questionType())
-            || "fill_blank".equals(answer.questionType())
+            || "essay".equals(answer.questionType())
+            || "fill_blank".equals(answer.questionType());
+    }
+
+    private boolean canUseAiSuggestion(GradingAnswerVO answer) {
+        return isSubjectiveLike(answer)
             || "pending".equals(answer.gradingStatus());
     }
 

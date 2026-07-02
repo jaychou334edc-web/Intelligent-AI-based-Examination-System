@@ -133,6 +133,34 @@ public class JdbcExamRepository implements ExamRepository {
     }
 
     @Override
+    public boolean isEditableOwnedByTeacher(Long examId, Long teacherId) {
+        Integer count = jdbcTemplate.queryForObject("""
+            SELECT COUNT(*) FROM exams
+            WHERE id = ? AND created_by = ? AND status IN ('draft', 'published') AND is_deleted = 0
+            """, Integer.class, examId, teacherId);
+        return count != null && count > 0;
+    }
+
+    @Override
+    public void updateEditableInfo(
+        Long examId,
+        String title,
+        String description,
+        Integer durationMinutes,
+        LocalDateTime startTime,
+        LocalDateTime endTime,
+        Long teacherId
+    ) {
+        jdbcTemplate.update("""
+            UPDATE exams
+            SET title = ?, description = ?, duration_minutes = ?,
+                start_time = ?, end_time = ?,
+                updated_at = CURRENT_TIMESTAMP, updated_by = ?
+            WHERE id = ? AND created_by = ? AND status IN ('draft', 'published') AND is_deleted = 0
+            """, title, description, durationMinutes, startTime, endTime, teacherId, examId, teacherId);
+    }
+
+    @Override
     public void replaceQuestions(Long examId, List<Long> questionIds) {
         jdbcTemplate.update("DELETE FROM exam_questions WHERE exam_id = ?", examId);
         for (int index = 0; index < questionIds.size(); index++) {
